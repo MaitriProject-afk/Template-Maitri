@@ -16,7 +16,8 @@ import {
     Activity, 
     Search,
     ChevronRight,
-    Sparkles
+    Sparkles,
+    Layers
 } from 'lucide-react';
 
 export default function AdminLayout({ 
