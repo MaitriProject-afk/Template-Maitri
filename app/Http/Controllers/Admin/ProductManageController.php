@@ -131,6 +131,32 @@ class ProductManageController extends Controller
     }
 
     /**
+     * Show dedicated page to edit parent product and manage child items.
+     */
+    public function edit(Product $product): Response
+    {
+        $product->load([
+            'category:id,name,slug',
+            'subCategory:id,name,slug',
+            'items' => function ($q) {
+                $q->orderBy('sort_order')->orderBy('price');
+            },
+        ]);
+
+        $categories = Category::with('subCategories')->orderBy('sort_order')->get();
+        $h2hSkus = H2hProduct::select('buyer_sku_code', 'product_name', 'category', 'brand', 'retail_price', 'h2h_price', 'status', 'desc', 'start_cut_off', 'end_cut_off')
+            ->orderBy('brand')
+            ->orderBy('h2h_price')
+            ->get();
+
+        return Inertia::render('Admin/Products/Edit', [
+            'product' => $product,
+            'categories' => $categories,
+            'h2hSkus' => $h2hSkus,
+        ]);
+    }
+
+    /**
      * Update the specified parent product.
      */
     public function update(Request $request, Product $product): RedirectResponse

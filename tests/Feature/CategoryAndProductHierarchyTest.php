@@ -200,4 +200,21 @@ class CategoryAndProductHierarchyTest extends TestCase
         // Product Detail
         $this->get('/product/mobile-legends')->assertStatus(200);
     }
+
+    public function test_admin_can_access_edit_product_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $category = Category::create(['name' => 'Games', 'slug' => 'games', 'is_active' => true]);
+        $product = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Mobile Legends',
+            'slug' => 'mobile-legends',
+            'brand' => 'Moonton',
+            'input_type' => 'game_user_zone',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($admin)->get("/admin/products/{$product->id}/edit");
+        $response->assertStatus(200);
+    }
 }

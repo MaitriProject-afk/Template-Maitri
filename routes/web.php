@@ -75,6 +75,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     // Parent Product & Product Item Management
     Route::get('/products', [ProductManageController::class, 'index'])->name('admin.products.index');
     Route::post('/products', [ProductManageController::class, 'store'])->name('admin.products.store');
+    Route::get('/products/{product}/edit', [ProductManageController::class, 'edit'])->name('admin.products.edit');
+    Route::get('/products/{product}', [ProductManageController::class, 'edit']);
     Route::put('/products/{product}', [ProductManageController::class, 'update'])->name('admin.products.update');
     Route::delete('/products/{product}', [ProductManageController::class, 'destroy'])->name('admin.products.destroy');
 
@@ -82,6 +84,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/products/{product}/items', [ProductManageController::class, 'storeItem'])->name('admin.products.items.store');
     Route::put('/products/items/{item}', [ProductManageController::class, 'updateItem'])->name('admin.products.items.update');
     Route::delete('/products/items/{item}', [ProductManageController::class, 'destroyItem'])->name('admin.products.items.destroy');
+    Route::put('/products/{product}/items/{item}', [ProductManageController::class, 'updateItem']);
+    Route::delete('/products/{product}/items/{item}', [ProductManageController::class, 'destroyItem']);
 
     // Raw H2H SKUs & Sync Catalog
     Route::get('/h2h-products', [H2hProductController::class, 'index'])->name('admin.h2h.index');

@@ -463,9 +463,12 @@ export default function ProductManage({
 
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="text-base sm:text-lg font-black text-ink">
+                                                    <Link
+                                                        href={`/admin/products/${product.id}/edit`}
+                                                        className="text-base sm:text-lg font-black text-ink hover:text-brand transition-colors"
+                                                    >
                                                         {product.name}
-                                                    </h3>
+                                                    </Link>
                                                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-paper-dark border border-ink text-ink-muted">
                                                         /product/{product.slug}
                                                     </span>
@@ -511,23 +514,22 @@ export default function ProductManage({
                                                 <ExternalLink className="w-3.5 h-3.5" />
                                             </a>
 
-                                            <button
-                                                type="button"
-                                                onClick={() => openAddItem(product)}
-                                                className="sketch-btn px-3.5 py-1.5 bg-brand text-white rounded-xl border-2 border-ink shadow-sketch-xs text-xs font-black flex items-center gap-1.5 transition-all"
+                                            <Link
+                                                href={`/admin/products/${product.id}/edit`}
+                                                className="sketch-btn px-3.5 py-1.5 bg-brand text-white rounded-xl border-2 border-ink shadow-sketch-xs text-xs font-black flex items-center gap-1.5 transition-all hover:brightness-110"
+                                                title="Kelola & Tambah Item"
                                             >
                                                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
                                                 <span>+ Item</span>
-                                            </button>
+                                            </Link>
 
-                                            <button
-                                                type="button"
-                                                onClick={() => openEditProduct(product)}
-                                                className="p-2 rounded-xl bg-white hover:bg-paper-dark text-ink border-2 border-ink shadow-sketch-xs transition-all"
-                                                title="Edit Produk"
+                                            <Link
+                                                href={`/admin/products/${product.id}/edit?tab=product`}
+                                                className="p-2 rounded-xl bg-white hover:bg-paper-dark text-ink border-2 border-ink shadow-sketch-xs transition-all inline-flex items-center justify-center"
+                                                title="Edit Informasi Produk"
                                             >
                                                 <Edit2 className="w-3.5 h-3.5" />
-                                            </button>
+                                            </Link>
 
                                             <button
                                                 type="button"
@@ -548,13 +550,13 @@ export default function ProductManage({
                                                     <DollarSign className="w-4 h-4 text-emerald-600" />
                                                     <span>Denominasi Item & Pengaturan Margin Profit:</span>
                                                 </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openAddItem(product)}
-                                                    className="text-xs font-bold text-brand hover:underline font-mono"
+                                                <Link
+                                                    href={`/admin/products/${product.id}/edit`}
+                                                    className="text-xs font-bold text-brand hover:underline font-mono flex items-center gap-1"
                                                 >
-                                                    + Tambah Item Baru
-                                                </button>
+                                                    <span>+ Kelola & Tambah Item</span>
+                                                    <ChevronRight className="w-3 h-3" />
+                                                </Link>
                                             </div>
 
                                             {items.length > 0 ? (
