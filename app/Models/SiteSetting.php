@@ -26,6 +26,7 @@ class SiteSetting extends Model
         'h2h_api_url',
         'h2h_api_key',
         'h2h_api_secret',
+        'cron_sync_token',
     ];
 
     public const DEFAULT_SETTINGS = [
@@ -46,6 +47,7 @@ class SiteSetting extends Model
         'h2h_api_url' => 'https://maitriproject.my.id/api/v1/h2h',
         'h2h_api_key' => null,
         'h2h_api_secret' => null,
+        'cron_sync_token' => 'maitri_sync_cron_key_sec99',
     ];
 
     public const PRESETS = [

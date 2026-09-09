@@ -47,8 +47,8 @@ export default function AdminLayout({
             id: 'products',
             name: 'Produk & Harga',
             icon: Package,
-            href: '#',
-            badge: '184',
+            href: '/admin/products',
+            badge: 'H2H',
             badgeColor: 'bg-brand-subtle text-brand-navy',
         },
         {

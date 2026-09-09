@@ -1,0 +1,258 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Product;
+use App\Models\ProductSyncLog;
+use App\Models\SiteSetting;
+use Illuminate\Support\Facades\Http;
+
+class ProductSyncService
+{
+    /**
+     * Execute products synchronization from Maitri Project H2H API.
+     *
+     * @param  string  $triggeredBy  ('MANUAL', 'CRON', 'CLI')
+     * @return array{
+     *     success: bool,
+     *     status: string,
+     *     message: string,
+     *     total_items: int,
+     *     items_added: int,
+     *     items_updated: int,
+     *     duration_seconds: float,
+     *     log: ProductSyncLog
+     * }
+     */
+    public function sync(string $triggeredBy = 'MANUAL', ?string $ipAddress = null): array
+    {
+        $startTime = microtime(true);
+        $settings = SiteSetting::getSettings();
+
+        if (empty($settings['h2h_api_key'])) {
+            $duration = round(microtime(true) - $startTime, 2);
+            $message = 'Gagal: Kredensial API Key H2H belum diisi di Pengaturan Toko.';
+
+            $log = ProductSyncLog::create([
+                'status' => 'FAILED',
+                'triggered_by' => $triggeredBy,
+                'total_items' => 0,
+                'items_added' => 0,
+                'items_updated' => 0,
+                'message' => $message,
+                'duration_seconds' => $duration,
+                'ip_address' => $ipAddress,
+            ]);
+
+            return [
+                'success' => false,
+                'status' => 'FAILED',
+                'message' => $message,
+                'total_items' => 0,
+                'items_added' => 0,
+                'items_updated' => 0,
+                'duration_seconds' => $duration,
+                'log' => $log,
+            ];
+        }
+
+        $baseUrl = rtrim($settings['h2h_api_url'] ?? 'https://maitriproject.my.id/api/v1/h2h', '/');
+        $endpoint = str_contains($baseUrl, '/api/v1/h2h')
+            ? $baseUrl.'/products'
+            : $baseUrl.'/api/v1/h2h/products';
+
+        try {
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'X-Maitri-API-Key' => $settings['h2h_api_key'],
+                    'Accept' => 'application/json',
+                ])
+                ->timeout(20)
+                ->get($endpoint);
+
+            $duration = round(microtime(true) - $startTime, 2);
+
+            // Handle 429 Rate Limiting specifically
+            if ($response->status() === 429) {
+                $message = 'Gateway Maitri merespon 429 Too Many Requests. Data produk di-cache selama 5 menit (maks. 1 request per 5 menit). Mohon tunggu beberapa saat sebelum sinkronisasi kembali.';
+
+                $log = ProductSyncLog::create([
+                    'status' => 'RATE_LIMITED',
+                    'triggered_by' => $triggeredBy,
+                    'total_items' => 0,
+                    'items_added' => 0,
+                    'items_updated' => 0,
+                    'message' => $message,
+                    'duration_seconds' => $duration,
+                    'ip_address' => $ipAddress,
+                ]);
+
+                return [
+                    'success' => false,
+                    'status' => 'RATE_LIMITED',
+                    'message' => $message,
+                    'total_items' => 0,
+                    'items_added' => 0,
+                    'items_updated' => 0,
+                    'duration_seconds' => $duration,
+                    'log' => $log,
+                ];
+            }
+
+            if (! $response->successful()) {
+                $errorDetail = $response->json('message')
+                    ?? $response->json('error')
+                    ?? ('HTTP '.$response->status().' - '.$response->reason());
+
+                $message = 'Koneksi Ditolak Server Maitri: '.$errorDetail;
+
+                $log = ProductSyncLog::create([
+                    'status' => 'FAILED',
+                    'triggered_by' => $triggeredBy,
+                    'total_items' => 0,
+                    'items_added' => 0,
+                    'items_updated' => 0,
+                    'message' => $message,
+                    'duration_seconds' => $duration,
+                    'ip_address' => $ipAddress,
+                ]);
+
+                return [
+                    'success' => false,
+                    'status' => 'FAILED',
+                    'message' => $message,
+                    'total_items' => 0,
+                    'items_added' => 0,
+                    'items_updated' => 0,
+                    'duration_seconds' => $duration,
+                    'log' => $log,
+                ];
+            }
+
+            $payload = $response->json();
+            $items = $payload['data'] ?? [];
+
+            if (! is_array($items) || empty($items)) {
+                $message = 'Sinkronisasi selesai: Tidak ada produk aktif yang diterima dari server Maitri.';
+
+                $log = ProductSyncLog::create([
+                    'status' => 'SUCCESS',
+                    'triggered_by' => $triggeredBy,
+                    'total_items' => 0,
+                    'items_added' => 0,
+                    'items_updated' => 0,
+                    'message' => $message,
+                    'duration_seconds' => $duration,
+                    'ip_address' => $ipAddress,
+                ]);
+
+                return [
+                    'success' => true,
+                    'status' => 'SUCCESS',
+                    'message' => $message,
+                    'total_items' => 0,
+                    'items_added' => 0,
+                    'items_updated' => 0,
+                    'duration_seconds' => $duration,
+                    'log' => $log,
+                ];
+            }
+
+            $existingSkus = Product::pluck('buyer_sku_code')->flip();
+            $now = now();
+            $records = [];
+            $addedCount = 0;
+            $updatedCount = 0;
+
+            foreach ($items as $item) {
+                if (empty($item['buyer_sku_code'])) {
+                    continue;
+                }
+
+                $sku = (string) $item['buyer_sku_code'];
+
+                if (isset($existingSkus[$sku])) {
+                    $updatedCount++;
+                } else {
+                    $addedCount++;
+                }
+
+                $records[] = [
+                    'buyer_sku_code' => $sku,
+                    'product_name' => (string) ($item['product_name'] ?? $sku),
+                    'category' => (string) ($item['category'] ?? 'Games'),
+                    'brand' => (string) ($item['brand'] ?? 'UMUM'),
+                    'type' => (string) ($item['type'] ?? 'Umum'),
+                    'retail_price' => (int) ($item['retail_price'] ?? 0),
+                    'h2h_price' => (int) ($item['h2h_price'] ?? 0),
+                    'status' => (string) ($item['status'] ?? 'AVAILABLE'),
+                    'is_active' => true,
+                    'synced_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            if (! empty($records)) {
+                // Batch upsert in chunks of 200 items for high performance and stability
+                foreach (array_chunk($records, 200) as $chunk) {
+                    Product::upsert(
+                        $chunk,
+                        ['buyer_sku_code'],
+                        ['product_name', 'category', 'brand', 'type', 'retail_price', 'h2h_price', 'status', 'synced_at', 'updated_at']
+                    );
+                }
+            }
+
+            $totalCount = count($records);
+            $message = "Berhasil mensinkronkan {$totalCount} produk ({$addedCount} produk baru ditambahkan, {$updatedCount} produk diperbarui).";
+
+            $log = ProductSyncLog::create([
+                'status' => 'SUCCESS',
+                'triggered_by' => $triggeredBy,
+                'total_items' => $totalCount,
+                'items_added' => $addedCount,
+                'items_updated' => $updatedCount,
+                'message' => $message,
+                'duration_seconds' => $duration,
+                'ip_address' => $ipAddress,
+            ]);
+
+            return [
+                'success' => true,
+                'status' => 'SUCCESS',
+                'message' => $message,
+                'total_items' => $totalCount,
+                'items_added' => $addedCount,
+                'items_updated' => $updatedCount,
+                'duration_seconds' => $duration,
+                'log' => $log,
+            ];
+        } catch (\Throwable $e) {
+            $duration = round(microtime(true) - $startTime, 2);
+            $message = 'Terjadi Kesalahan Sistem: '.$e->getMessage();
+
+            $log = ProductSyncLog::create([
+                'status' => 'FAILED',
+                'triggered_by' => $triggeredBy,
+                'total_items' => 0,
+                'items_added' => 0,
+                'items_updated' => 0,
+                'message' => $message,
+                'duration_seconds' => $duration,
+                'ip_address' => $ipAddress,
+            ]);
+
+            return [
+                'success' => false,
+                'status' => 'FAILED',
+                'message' => $message,
+                'total_items' => 0,
+                'items_added' => 0,
+                'items_updated' => 0,
+                'duration_seconds' => $duration,
+                'log' => $log,
+            ];
+        }
+    }
+}

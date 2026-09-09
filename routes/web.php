@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
@@ -73,6 +74,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/settings', [SettingController::class, 'update'])->name('admin.settings.update');
     Route::post('/settings/reset', [SettingController::class, 'reset'])->name('admin.settings.reset');
     Route::post('/settings/test-h2h', [SettingController::class, 'testH2h'])->name('admin.settings.test-h2h');
+
+    Route::get('/products', [ProductController::class, 'index'])->name('admin.products.index');
+    Route::post('/products/sync', [ProductController::class, 'sync'])->name('admin.products.sync');
 });
 
 require __DIR__.'/auth.php';
