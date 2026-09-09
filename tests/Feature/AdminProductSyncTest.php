@@ -57,6 +57,12 @@ class AdminProductSyncTest extends TestCase
                         'retail_price' => 22000,
                         'h2h_price' => 20125,
                         'status' => 'AVAILABLE',
+                        'start_cut_off' => '23:45',
+                        'end_cut_off' => '00:15',
+                        'desc' => 'Masukkan User ID & Zone ID. Contoh: 12345678 (2019).',
+                        'unlimited_stock' => true,
+                        'stock' => 0,
+                        'multi' => true,
                     ],
                     [
                         'buyer_sku_code' => 'FF-140',
@@ -67,6 +73,12 @@ class AdminProductSyncTest extends TestCase
                         'retail_price' => 19500,
                         'h2h_price' => 18200,
                         'status' => 'AVAILABLE',
+                        'start_cut_off' => null,
+                        'end_cut_off' => null,
+                        'desc' => null,
+                        'unlimited_stock' => true,
+                        'stock' => 100,
+                        'multi' => false,
                     ],
                 ],
             ], 200),
@@ -81,6 +93,11 @@ class AdminProductSyncTest extends TestCase
             'product_name' => 'Mobile Legends - 86 Diamonds',
             'retail_price' => 22000,
             'h2h_price' => 20125,
+            'start_cut_off' => '23:45',
+            'end_cut_off' => '00:15',
+            'desc' => 'Masukkan User ID & Zone ID. Contoh: 12345678 (2019).',
+            'unlimited_stock' => true,
+            'multi' => true,
         ]);
 
         $this->assertDatabaseHas('product_sync_logs', [

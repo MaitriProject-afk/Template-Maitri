@@ -363,22 +363,21 @@ export default function ProductsIndex({
                                     <thead>
                                         <tr className="bg-paper-dark border-b-2 border-ink text-[11px] font-mono uppercase font-bold text-ink">
                                             <th className="py-3 px-4">Kode SKU</th>
-                                            <th className="py-3 px-4">Nama Produk & Brand</th>
-                                            <th className="py-3 px-4">Kategori</th>
+                                            <th className="py-3 px-4">Nama Produk & Deskripsi</th>
+                                            <th className="py-3 px-4">Kategori & Brand</th>
                                             <th className="py-3 px-4 text-right">Harga Modal (H2H)</th>
-                                            <th className="py-3 px-4 text-right">Harga Retail (Publik)</th>
-                                            <th className="py-3 px-4 text-right">Margin Untung</th>
+                                            <th className="py-3 px-4 text-right">Harga Retail (Maitri)</th>
+                                            <th className="py-3 px-4 text-center">Jam Cut-Off</th>
                                             <th className="py-3 px-4 text-center">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y-2 divide-ink/10 text-xs font-medium">
                                         {products.data && products.data.length > 0 ? (
                                             products.data.map((item) => {
-                                                const margin = (item.retail_price || 0) - (item.h2h_price || 0);
                                                 return (
                                                     <tr key={item.id} className="hover:bg-paper-light/50 transition-colors">
                                                         {/* SKU */}
-                                                        <td className="py-3.5 px-4 font-mono font-bold text-ink whitespace-nowrap">
+                                                        <td className="py-3.5 px-4 font-mono font-bold text-ink whitespace-nowrap align-top">
                                                             <div className="flex items-center gap-1.5">
                                                                 <span className="px-2 py-0.5 rounded bg-paper-dark border border-ink/30 text-[11px]">
                                                                     {item.buyer_sku_code}
@@ -398,55 +397,69 @@ export default function ProductsIndex({
                                                             </div>
                                                         </td>
 
-                                                        {/* Product Name & Brand */}
-                                                        <td className="py-3.5 px-4">
-                                                            <div className="font-bold text-ink text-xs line-clamp-1">
+                                                        {/* Product Name, Type & Description */}
+                                                        <td className="py-3.5 px-4 align-top max-w-sm">
+                                                            <div className="font-black text-ink text-xs">
                                                                 {item.product_name}
                                                             </div>
-                                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-sketch-sky/50 text-ink border border-ink/20">
-                                                                    {item.brand}
-                                                                </span>
-                                                                {item.type && (
-                                                                    <span className="text-[10px] font-mono text-ink-muted">
-                                                                        • {item.type}
+
+                                                            {item.desc && (
+                                                                <p className="text-[11px] text-ink-muted bg-paper-dark/60 p-2 rounded-lg border border-ink/10 mt-1.5 leading-relaxed">
+                                                                    📝 {item.desc}
+                                                                </p>
+                                                            )}
+
+                                                            <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[10px] font-mono">
+                                                                {item.multi && (
+                                                                    <span className="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-300 font-bold" title="Mengizinkan transaksi multi dengan nomor tujuan sama">
+                                                                        Multi Order
                                                                     </span>
                                                                 )}
+                                                                <span className="text-ink-muted">
+                                                                    Stok: {item.unlimited_stock ? 'Tak Terbatas' : (item.stock || 0)}
+                                                                </span>
                                                             </div>
                                                         </td>
 
-                                                        {/* Category */}
-                                                        <td className="py-3.5 px-4 whitespace-nowrap">
-                                                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-ink-muted bg-paper-grid px-2 py-0.5 rounded-lg border border-ink/20">
-                                                                <Tag className="w-3 h-3 text-brand" />
-                                                                <span>{item.category}</span>
-                                                            </span>
+                                                        {/* Category & Brand */}
+                                                        <td className="py-3.5 px-4 whitespace-nowrap align-top">
+                                                            <div className="space-y-1">
+                                                                <span className="inline-block text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-sketch-sky text-ink border border-ink shadow-sketch-xs">
+                                                                    {item.brand}
+                                                                </span>
+                                                                <div className="text-[11px] text-ink-muted flex items-center gap-1 font-bold">
+                                                                    <Tag className="w-3 h-3 text-brand shrink-0" />
+                                                                    <span>{item.category}</span>
+                                                                    {item.type && <span>• {item.type}</span>}
+                                                                </div>
+                                                            </div>
                                                         </td>
 
                                                         {/* H2H Wholesale Price */}
-                                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-ink whitespace-nowrap">
+                                                        <td className="py-3.5 px-4 text-right font-mono font-black text-ink whitespace-nowrap align-top">
                                                             Rp {(item.h2h_price || 0).toLocaleString('id-ID')}
                                                         </td>
 
                                                         {/* Retail Price */}
-                                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-brand whitespace-nowrap">
+                                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-brand whitespace-nowrap align-top">
                                                             Rp {(item.retail_price || 0).toLocaleString('id-ID')}
                                                         </td>
 
-                                                        {/* Profit Margin */}
-                                                        <td className="py-3.5 px-4 text-right font-mono whitespace-nowrap">
-                                                            <span className={`inline-block px-1.5 py-0.5 rounded font-bold text-[11px] ${
-                                                                margin > 0
-                                                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                                                    : 'bg-paper-dark text-ink-muted'
-                                                            }`}>
-                                                                +{margin > 0 ? `Rp ${margin.toLocaleString('id-ID')}` : 'Rp 0'}
-                                                            </span>
+                                                        {/* Daily Cut-off Time */}
+                                                        <td className="py-3.5 px-4 text-center whitespace-nowrap align-top">
+                                                            {item.start_cut_off && item.end_cut_off ? (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-mono text-[11px] font-bold" title="Periode cut-off server pusat">
+                                                                    <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                                                    <span>{item.start_cut_off} - {item.end_cut_off}</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-ink-muted font-mono text-xs">-</span>
+                                                            )}
                                                         </td>
 
                                                         {/* Availability Status */}
-                                                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                                                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black border uppercase tracking-wider ${
+                                                        <td className="py-3.5 px-4 text-center whitespace-nowrap align-top">
+                                                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black border uppercase tracking-wider ${
                                                                 item.status === 'AVAILABLE'
                                                                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                                                                     : 'bg-rose-100 text-rose-800 border-rose-300'

@@ -15,6 +15,12 @@ class Product extends Model
         'retail_price',
         'h2h_price',
         'status',
+        'start_cut_off',
+        'end_cut_off',
+        'desc',
+        'unlimited_stock',
+        'stock',
+        'multi',
         'is_active',
         'synced_at',
     ];
@@ -22,21 +28,17 @@ class Product extends Model
     protected $casts = [
         'retail_price' => 'integer',
         'h2h_price' => 'integer',
+        'unlimited_stock' => 'boolean',
+        'stock' => 'integer',
+        'multi' => 'boolean',
         'is_active' => 'boolean',
         'synced_at' => 'datetime',
     ];
 
     protected $appends = [
-        'profit_margin',
         'formatted_retail_price',
         'formatted_h2h_price',
-        'formatted_profit_margin',
     ];
-
-    public function getProfitMarginAttribute(): int
-    {
-        return max(0, $this->retail_price - $this->h2h_price);
-    }
 
     public function getFormattedRetailPriceAttribute(): string
     {
@@ -46,10 +48,5 @@ class Product extends Model
     public function getFormattedH2hPriceAttribute(): string
     {
         return 'Rp '.number_format($this->h2h_price, 0, ',', '.');
-    }
-
-    public function getFormattedProfitMarginAttribute(): string
-    {
-        return 'Rp '.number_format($this->profit_margin, 0, ',', '.');
     }
 }

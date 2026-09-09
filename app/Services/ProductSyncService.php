@@ -186,6 +186,12 @@ class ProductSyncService
                     'retail_price' => (int) ($item['retail_price'] ?? 0),
                     'h2h_price' => (int) ($item['h2h_price'] ?? 0),
                     'status' => (string) ($item['status'] ?? 'AVAILABLE'),
+                    'start_cut_off' => ! empty($item['start_cut_off']) ? (string) $item['start_cut_off'] : null,
+                    'end_cut_off' => ! empty($item['end_cut_off']) ? (string) $item['end_cut_off'] : null,
+                    'desc' => ! empty($item['desc']) ? (string) $item['desc'] : null,
+                    'unlimited_stock' => (bool) ($item['unlimited_stock'] ?? true),
+                    'stock' => (int) ($item['stock'] ?? 0),
+                    'multi' => (bool) ($item['multi'] ?? false),
                     'is_active' => true,
                     'synced_at' => $now,
                     'created_at' => $now,
@@ -199,7 +205,23 @@ class ProductSyncService
                     Product::upsert(
                         $chunk,
                         ['buyer_sku_code'],
-                        ['product_name', 'category', 'brand', 'type', 'retail_price', 'h2h_price', 'status', 'synced_at', 'updated_at']
+                        [
+                            'product_name',
+                            'category',
+                            'brand',
+                            'type',
+                            'retail_price',
+                            'h2h_price',
+                            'status',
+                            'start_cut_off',
+                            'end_cut_off',
+                            'desc',
+                            'unlimited_stock',
+                            'stock',
+                            'multi',
+                            'synced_at',
+                            'updated_at',
+                        ]
                     );
                 }
             }
