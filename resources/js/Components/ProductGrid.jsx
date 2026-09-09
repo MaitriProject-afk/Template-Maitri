@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import ProductCard from './ProductCard';
 import CategoryTabs from './CategoryTabs';
-import { Search, Flame, Sparkles, Frown, Layers, ChevronRight } from 'lucide-react';
+import { Search, Flame, Sparkles, Frown, Layers, ChevronRight, PackageOpen } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 
 export default function ProductGrid({ 
-    products, 
+    categories = [],
+    products = [], 
     activeCategory, 
     onSelectCategory, 
     searchQuery, 
@@ -19,11 +20,13 @@ export default function ProductGrid({
             const matchesCategory = 
                 activeCategory === 'all' || item.category === activeCategory;
             
+            const q = (searchQuery || '').toLowerCase();
             const matchesSearch = 
-                !searchQuery || 
-                item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                item.publisher.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                item.tagline.toLowerCase().includes(searchQuery.toLowerCase());
+                !q || 
+                (item.name && item.name.toLowerCase().includes(q)) ||
+                (item.brand && item.brand.toLowerCase().includes(q)) ||
+                (item.category_name && item.category_name.toLowerCase().includes(q)) ||
+                (item.tagline && item.tagline.toLowerCase().includes(q));
 
             return matchesCategory && matchesSearch;
         });
@@ -47,11 +50,11 @@ export default function ProductGrid({
                             Pilih Game & Layanan Top Up
                         </h2>
                         <p className="text-sm text-ink-muted mt-1 font-medium">
-                            10 Produk terpopuler pilihan kami. Temukan seluruh produk di halaman katalog lengkap.
+                            Produk terpopuler pilihan kami. Temukan seluruh produk di halaman katalog lengkap.
                         </p>
                     </div>
 
-                    {/* Mobile Search input within catalog */}
+                    {/* Search input within catalog */}
                     <div className="w-full md:w-72">
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-ink-muted">
@@ -61,7 +64,7 @@ export default function ProductGrid({
                                 type="text"
                                 value={searchQuery || ''}
                                 onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
-                                placeholder="Cari nama game..."
+                                placeholder="Cari nama game / produk..."
                                 className="w-full pl-9 pr-4 py-2 bg-white border-2 border-ink rounded-xl shadow-sketch-xs text-xs sm:text-sm font-medium focus:ring-0 focus:border-ink focus:shadow-sketch"
                             />
                         </div>
@@ -69,14 +72,17 @@ export default function ProductGrid({
                 </div>
 
                 {/* Category Pills Slider */}
-                <div className="mb-6">
-                    <CategoryTabs 
-                        activeCategory={activeCategory} 
-                        onSelectCategory={onSelectCategory} 
-                    />
-                </div>
+                {categories.length > 0 && (
+                    <div className="mb-6">
+                        <CategoryTabs 
+                            categories={categories}
+                            activeCategory={activeCategory} 
+                            onSelectCategory={onSelectCategory} 
+                        />
+                    </div>
+                )}
 
-                {/* Grid of Products (Max 10) */}
+                {/* Grid of Products */}
                 {displayedProducts.length > 0 ? (
                     <>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4 md:gap-5">
@@ -99,34 +105,39 @@ export default function ProductGrid({
                                 <span>Lihat Semua Produk di Halaman Katalog</span>
                                 <ChevronRight className="w-4 h-4" />
                             </Link>
-                            <p className="text-xs font-sketch font-bold text-ink-muted mt-2">
-                                ✍️ "Tersedia puluhan produk game, pulsa, voucher, dan PPOB lainnya di halaman katalog!"
-                            </p>
                         </div>
                     </>
                 ) : (
                     /* Empty state in Sketchbook style */
                     <div className="sketch-card p-10 text-center bg-paper-grid max-w-md mx-auto my-8">
-                        <div className="w-16 h-16 rounded-full bg-sketch-coral/30 border-2 border-ink shadow-sketch-xs mx-auto flex items-center justify-center mb-3">
-                            <Frown className="w-8 h-8 text-ink stroke-[2]" />
+                        <div className="w-16 h-16 rounded-full bg-brand-subtle border-2 border-ink shadow-sketch-xs mx-auto flex items-center justify-center mb-3">
+                            {searchQuery ? (
+                                <Frown className="w-8 h-8 text-ink stroke-[2]" />
+                            ) : (
+                                <PackageOpen className="w-8 h-8 text-brand stroke-[2]" />
+                            )}
                         </div>
                         <h3 className="font-extrabold text-lg text-ink">
-                            Produk Tidak Ditemukan
+                            {searchQuery ? 'Produk Tidak Ditemukan' : 'Belum Ada Produk Ditambahkan'}
                         </h3>
                         <p className="text-xs text-ink-muted mt-1 max-w-xs mx-auto">
-                            Tidak ada game atau produk yang cocok dengan pencarian "{searchQuery}".
+                            {searchQuery
+                                ? `Tidak ada game atau produk yang cocok dengan "${searchQuery}".`
+                                : 'Katalog produk toko akan segera tersedia setelah admin menambahkan produk.'}
                         </p>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onSearchChange('');
-                                onSelectCategory('all');
-                            }}
-                            className="sketch-btn px-4 py-2 bg-brand text-white font-bold text-xs rounded-xl mt-4 inline-flex items-center gap-1.5 border-2 border-ink shadow-sketch-xs"
-                        >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>Reset Pencarian</span>
-                        </button>
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onSearchChange('');
+                                    onSelectCategory('all');
+                                }}
+                                className="sketch-btn px-4 py-2 bg-brand text-white font-bold text-xs rounded-xl mt-4 inline-flex items-center gap-1.5 border-2 border-ink shadow-sketch-xs"
+                            >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                <span>Reset Pencarian</span>
+                            </button>
+                        )}
                     </div>
                 )}
 

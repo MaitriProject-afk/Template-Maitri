@@ -2,7 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Product;
+use App\Models\H2hProduct;
+use App\Models\ProductItem;
 use App\Models\ProductSyncLog;
 use App\Models\SiteSetting;
 use Illuminate\Support\Facades\Http;
@@ -158,7 +159,7 @@ class ProductSyncService
                 ];
             }
 
-            $existingSkus = Product::pluck('buyer_sku_code')->flip();
+            $existingSkus = H2hProduct::pluck('buyer_sku_code')->flip();
             $now = now();
             $records = [];
             $addedCount = 0;
@@ -200,9 +201,9 @@ class ProductSyncService
             }
 
             if (! empty($records)) {
-                // Batch upsert in chunks of 200 items for high performance and stability
+                // Batch upsert in chunks of 200 items into h2h_products table
                 foreach (array_chunk($records, 200) as $chunk) {
-                    Product::upsert(
+                    H2hProduct::upsert(
                         $chunk,
                         ['buyer_sku_code'],
                         [
@@ -223,6 +224,36 @@ class ProductSyncService
                             'updated_at',
                         ]
                     );
+                }
+
+                // Update matching ProductItem records with updated h2h prices and statuses
+                $skuMap = collect($records)->keyBy('buyer_sku_code');
+                $itemsToUpdate = ProductItem::whereIn('buyer_sku_code', $skuMap->keys())->get();
+
+                foreach ($itemsToUpdate as $productItem) {
+                    $raw = $skuMap->get($productItem->buyer_sku_code);
+                    if ($raw) {
+                        $newH2hPrice = $raw['h2h_price'];
+                        $productItem->h2h_price = $newH2hPrice;
+                        $productItem->status = $raw['status'];
+                        $productItem->start_cut_off = $raw['start_cut_off'];
+                        $productItem->end_cut_off = $raw['end_cut_off'];
+                        $productItem->desc = $raw['desc'];
+                        $productItem->unlimited_stock = $raw['unlimited_stock'];
+                        $productItem->stock = $raw['stock'];
+                        $productItem->multi = $raw['multi'];
+
+                        // If profit is defined, recalculate selling price
+                        if ($productItem->profit_value > 0) {
+                            $productItem->price = $productItem->computePrice(
+                                $newH2hPrice,
+                                $productItem->profit_type ?? 'fixed',
+                                $productItem->profit_value
+                            );
+                        }
+
+                        $productItem->save();
+                    }
                 }
             }
 

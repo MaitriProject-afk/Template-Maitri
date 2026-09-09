@@ -3,50 +3,57 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
     protected $fillable = [
-        'buyer_sku_code',
-        'product_name',
-        'category',
+        'category_id',
+        'sub_category_id',
+        'name',
+        'slug',
         'brand',
-        'type',
-        'retail_price',
-        'h2h_price',
-        'status',
-        'start_cut_off',
-        'end_cut_off',
-        'desc',
-        'unlimited_stock',
-        'stock',
-        'multi',
+        'thumbnail',
+        'banner',
+        'description',
+        'input_type',
+        'input_label',
+        'input_placeholder',
+        'has_zone_id',
+        'zone_label',
+        'zone_placeholder',
+        'server_options',
+        'sort_order',
         'is_active',
-        'synced_at',
     ];
 
     protected $casts = [
-        'retail_price' => 'integer',
-        'h2h_price' => 'integer',
-        'unlimited_stock' => 'boolean',
-        'stock' => 'integer',
-        'multi' => 'boolean',
+        'category_id' => 'integer',
+        'sub_category_id' => 'integer',
+        'has_zone_id' => 'boolean',
+        'server_options' => 'array',
+        'sort_order' => 'integer',
         'is_active' => 'boolean',
-        'synced_at' => 'datetime',
     ];
 
-    protected $appends = [
-        'formatted_retail_price',
-        'formatted_h2h_price',
-    ];
-
-    public function getFormattedRetailPriceAttribute(): string
+    public function category(): BelongsTo
     {
-        return 'Rp '.number_format($this->retail_price, 0, ',', '.');
+        return $this->belongsTo(Category::class);
     }
 
-    public function getFormattedH2hPriceAttribute(): string
+    public function subCategory(): BelongsTo
     {
-        return 'Rp '.number_format($this->h2h_price, 0, ',', '.');
+        return $this->belongsTo(SubCategory::class, 'sub_category_id');
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(ProductItem::class)->orderBy('sort_order');
+    }
+
+    public function activeItems(): HasMany
+    {
+        return $this->hasMany(ProductItem::class)->where('is_active', true)->orderBy('sort_order');
     }
 }

@@ -44,11 +44,23 @@ export default function AdminLayout({
             badgeColor: 'bg-emerald-100 text-emerald-800',
         },
         {
+            id: 'categories',
+            name: 'Kategori & Sub',
+            icon: Layers,
+            href: '/admin/categories',
+        },
+        {
             id: 'products',
-            name: 'Produk & Harga',
+            name: 'Kelola Produk',
             icon: Package,
             href: '/admin/products',
-            badge: 'H2H',
+        },
+        {
+            id: 'h2h',
+            name: 'Sinkronisasi H2H',
+            icon: Activity,
+            href: '/admin/h2h-products',
+            badge: 'Maitri API',
             badgeColor: 'bg-brand-subtle text-brand-navy',
         },
         {
@@ -58,18 +70,6 @@ export default function AdminLayout({
             href: '#',
             badge: 'Baru (3)',
             badgeColor: 'bg-sketch-yellow text-ink font-bold',
-        },
-        {
-            id: 'finance',
-            name: 'Keuangan & Saldo',
-            icon: Wallet,
-            href: '#',
-        },
-        {
-            id: 'users',
-            name: 'Kelola Pengguna',
-            icon: Users,
-            href: '#',
         },
         {
             id: 'settings',

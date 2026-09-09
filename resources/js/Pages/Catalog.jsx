@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-    Gamepad2, 
     Search, 
     Layers, 
     Zap, 
@@ -8,27 +7,31 @@ import {
     Ticket, 
     Wallet, 
     Smartphone, 
-    Wifi, 
-    PhoneCall, 
-    Folder
+    Folder,
+    PackageOpen,
+    Filter
 } from 'lucide-react';
-import { CATALOG_CATEGORIES, CATALOG_SUB_CATEGORIES, CATALOG_PRODUCTS } from '../data/catalogData';
 import CatalogProductCard from '../Components/CatalogProductCard';
 import MainLayout from '../Layouts/MainLayout';
-import TopUpModal from '../Components/TopUpModal';
 import { router, usePage } from '@inertiajs/react';
 
-export default function Catalog({ auth }) {
+export default function Catalog({ 
+    auth, 
+    categories = [], 
+    subCategories = [], 
+    products = [] 
+}) {
     const { site } = usePage().props;
     const siteName = site?.site_name || 'Maitri Project';
-    const [activeCategory, setActiveCategory] = useState('sms-telpon'); // Default to demo category
-    const [activeSubCategory, setActiveSubCategory] = useState('all');
+    
+    // Active filters
+    const [activeCategory, setActiveCategory] = useState('all'); // 'all' or category id / slug
+    const [activeSubCategory, setActiveSubCategory] = useState('all'); // 'all' or subcategory id / slug
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedProduct, setSelectedProduct] = useState(null);
     const [isTrackerOpen, setIsTrackerOpen] = useState(false);
 
     const handleSelectProduct = (product) => {
-        const slug = product.slug || (product.name ? product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'indosat');
+        const slug = product.slug || (product.name ? product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'product');
         router.visit(`/product/${slug}`);
     };
 
@@ -42,16 +45,17 @@ export default function Catalog({ auth }) {
         }
     }, []);
 
-    // Get current category object
+    // Active Category Object
     const currentCategory = useMemo(() => {
-        return CATALOG_CATEGORIES.find(c => c.id === activeCategory) || CATALOG_CATEGORIES[0];
-    }, [activeCategory]);
+        if (activeCategory === 'all') return null;
+        return categories.find(c => String(c.id) === String(activeCategory) || c.slug === activeCategory) || null;
+    }, [categories, activeCategory]);
 
-    // Get available sub-categories for active category
+    // Available sub-categories for the selected category
     const availableSubCategories = useMemo(() => {
-        if (activeCategory === 'all') return [];
-        return CATALOG_SUB_CATEGORIES[activeCategory] || [];
-    }, [activeCategory]);
+        if (!currentCategory) return [];
+        return subCategories.filter(s => s.category_id === currentCategory.id);
+    }, [currentCategory, subCategories]);
 
     // Handle category click: reset subcategory to 'all'
     const handleCategoryClick = (catId) => {
@@ -61,42 +65,35 @@ export default function Catalog({ auth }) {
 
     // Filter products
     const filteredProducts = useMemo(() => {
-        return CATALOG_PRODUCTS.filter((product) => {
+        return products.filter((product) => {
             // Category filter
-            const matchesCategory = 
-                activeCategory === 'all' || product.category === activeCategory;
+            let matchesCategory = true;
+            if (activeCategory !== 'all') {
+                matchesCategory = 
+                    String(product.category_id) === String(activeCategory) || 
+                    product.category === activeCategory;
+            }
 
             // Subcategory filter
-            const matchesSub = 
-                activeSubCategory === 'all' || product.subCategory === activeSubCategory;
+            let matchesSub = true;
+            if (activeSubCategory !== 'all') {
+                matchesSub = 
+                    String(product.sub_category_id) === String(activeSubCategory) || 
+                    product.sub_category === activeSubCategory;
+            }
 
             // Search query filter
+            const q = (searchQuery || '').toLowerCase();
             const matchesSearch = 
-                !searchQuery || 
-                product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (product.publisher && product.publisher.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (product.badge && product.badge.toLowerCase().includes(searchQuery.toLowerCase()));
+                !q || 
+                (product.name && product.name.toLowerCase().includes(q)) ||
+                (product.brand && product.brand.toLowerCase().includes(q)) ||
+                (product.category_name && product.category_name.toLowerCase().includes(q)) ||
+                (product.sub_category_name && product.sub_category_name.toLowerCase().includes(q));
 
             return matchesCategory && matchesSub && matchesSearch;
         });
-    }, [activeCategory, activeSubCategory, searchQuery]);
-
-    // Render category icon
-    const getCategoryIcon = (iconName) => {
-        const props = { className: "w-4 h-4 shrink-0" };
-        switch (iconName) {
-            case 'Layers': return <Layers {...props} />;
-            case 'Zap': return <Zap {...props} />;
-            case 'Clock': return <Clock {...props} />;
-            case 'Ticket': return <Ticket {...props} />;
-            case 'Wallet': return <Wallet {...props} />;
-            case 'Smartphone': return <Smartphone {...props} />;
-            case 'Gamepad2': return <Gamepad2 {...props} />;
-            case 'Wifi': return <Wifi {...props} />;
-            case 'PhoneCall': return <PhoneCall {...props} />;
-            default: return <Folder {...props} />;
-        }
-    };
+    }, [products, activeCategory, activeSubCategory, searchQuery]);
 
     return (
         <MainLayout
@@ -106,7 +103,7 @@ export default function Catalog({ auth }) {
             activeTab="katalog"
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            onSelectProduct={(p) => setSelectedProduct(p)}
+            onSelectProduct={handleSelectProduct}
             isTrackerOpen={isTrackerOpen}
             setIsTrackerOpen={setIsTrackerOpen}
         >
@@ -127,7 +124,7 @@ export default function Catalog({ auth }) {
                         Pilih Kategori & Produk Top-Up
                     </h1>
                     <p className="text-xs sm:text-sm text-ink-muted mt-1 max-w-2xl leading-relaxed">
-                        Pilih kategori game/PPOB, sub-kategori, lalu klik produk untuk memulai transaksi top-up otomatis 24 jam.
+                        Pilih kategori game/layanan, filter sub-kategori, lalu klik produk untuk memulai transaksi otomatis 24 jam.
                     </p>
 
                     <div className="my-4 border-t-2 border-dashed border-ink/20"></div>
@@ -156,54 +153,90 @@ export default function Catalog({ auth }) {
                 </div>
 
                 {/* 1. PILIH KATEGORI UTAMA */}
-                <div>
-                    <h2 className="text-xs font-mono font-black text-ink uppercase tracking-wider mb-2.5">
-                        1. PILIH KATEGORI UTAMA:
-                    </h2>
-                    
-                    {/* Categories Horizontal Wrap / Pills */}
-                    <div className="flex flex-wrap gap-2 sm:gap-2.5">
-                        {CATALOG_CATEGORIES.map((cat) => {
-                            const isActive = activeCategory === cat.id;
-                            return (
-                                <button
-                                    key={cat.id}
-                                    type="button"
-                                    onClick={() => handleCategoryClick(cat.id)}
-                                    className={`sketch-btn px-3 sm:px-3.5 py-2 rounded-2xl text-xs font-bold inline-flex items-center gap-2 border-2 border-ink transition-all ${
-                                        isActive
-                                            ? 'bg-brand text-white shadow-sketch-xs scale-102 ring-2 ring-brand-navy/30'
-                                            : 'bg-white text-ink hover:bg-brand-subtle hover:border-brand shadow-sketch-xs'
-                                    }`}
-                                >
-                                    <span className={isActive ? 'text-white' : 'text-brand'}>
-                                        {getCategoryIcon(cat.icon)}
-                                    </span>
-                                    <span>{cat.name}</span>
-                                    {cat.count !== undefined && (
+                {categories.length > 0 && (
+                    <div>
+                        <h2 className="text-xs font-mono font-black text-ink uppercase tracking-wider mb-2.5">
+                            1. PILIH KATEGORI UTAMA:
+                        </h2>
+                        
+                        <div className="flex flex-wrap gap-2 sm:gap-2.5">
+                            {/* All Categories Option */}
+                            <button
+                                type="button"
+                                onClick={() => handleCategoryClick('all')}
+                                className={`sketch-btn px-3.5 py-2 rounded-2xl text-xs font-bold inline-flex items-center gap-2 border-2 border-ink transition-all ${
+                                    activeCategory === 'all'
+                                        ? 'bg-brand text-white shadow-sketch-xs scale-102 ring-2 ring-brand-navy/30'
+                                        : 'bg-white text-ink hover:bg-brand-subtle shadow-sketch-xs'
+                                }`}
+                            >
+                                <Layers className="w-4 h-4" />
+                                <span>Semua Kategori</span>
+                                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
+                                    activeCategory === 'all'
+                                        ? 'bg-white text-brand border-ink'
+                                        : 'bg-brand-subtle text-brand-navy border-ink/20'
+                                }`}>
+                                    {products.length}
+                                </span>
+                            </button>
+
+                            {/* Dynamic Database Categories */}
+                            {categories.map((cat) => {
+                                const isActive = String(activeCategory) === String(cat.id) || activeCategory === cat.slug;
+                                const catCount = products.filter(p => p.category_id === cat.id).length;
+
+                                return (
+                                    <button
+                                        key={cat.id}
+                                        type="button"
+                                        onClick={() => handleCategoryClick(cat.id)}
+                                        className={`sketch-btn px-3 sm:px-3.5 py-2 rounded-2xl text-xs font-bold inline-flex items-center gap-2 border-2 border-ink transition-all ${
+                                            isActive
+                                                ? 'bg-brand text-white shadow-sketch-xs scale-102 ring-2 ring-brand-navy/30'
+                                                : 'bg-white text-ink hover:bg-brand-subtle hover:border-brand shadow-sketch-xs'
+                                        }`}
+                                    >
+                                        <Folder className={`w-4 h-4 ${isActive ? 'text-white' : 'text-brand'}`} />
+                                        <span>{cat.name}</span>
                                         <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
                                             isActive 
                                                 ? 'bg-white text-brand border-ink' 
                                                 : 'bg-brand-subtle text-brand-navy border-ink/20'
                                         }`}>
-                                            {cat.count}
+                                            {catCount}
                                         </span>
-                                    )}
-                                </button>
-                            );
-                        })}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
+                )}
 
-                {/* 2. PILIH SUB-KATEGORI (Muncul saat Kategori ditekan) */}
-                {availableSubCategories.length > 0 && (
+                {/* 2. PILIH SUB-KATEGORI (Muncul saat Kategori ditekan & memiliki subkategori) */}
+                {currentCategory && availableSubCategories.length > 0 && (
                     <div className="sketch-card p-3.5 sm:p-4 bg-white rounded-2xl border-2 border-ink shadow-sketch animate-in fade-in duration-200">
                         <h3 className="text-xs font-mono font-black text-ink uppercase tracking-wider mb-2.5">
                             2. PILIH SUB-KATEGORI ({currentCategory.name.toUpperCase()}):
                         </h3>
                         <div className="flex flex-wrap gap-2">
+                            {/* All subcategories pill */}
+                            <button
+                                type="button"
+                                onClick={() => setActiveSubCategory('all')}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 border-ink transition-all active:translate-x-0.5 active:translate-y-0.5 ${
+                                    activeSubCategory === 'all'
+                                        ? 'bg-brand text-white shadow-sketch-xs scale-102'
+                                        : 'bg-white text-ink hover:bg-brand-subtle shadow-sketch-xs'
+                                }`}
+                            >
+                                Semua Subkategori
+                            </button>
+
                             {availableSubCategories.map((sub) => {
-                                const isSubActive = activeSubCategory === sub.id;
+                                const isSubActive = String(activeSubCategory) === String(sub.id) || activeSubCategory === sub.slug;
+                                const subCount = products.filter(p => p.sub_category_id === sub.id).length;
+
                                 return (
                                     <button
                                         key={sub.id}
@@ -215,7 +248,8 @@ export default function Catalog({ auth }) {
                                                 : 'bg-white text-ink hover:bg-brand-subtle hover:text-brand-navy shadow-sketch-xs'
                                         }`}
                                     >
-                                        {sub.name}
+                                        <span>{sub.name}</span>
+                                        <span className="ml-1 opacity-70 font-mono text-[10px]">({subCount})</span>
                                     </button>
                                 );
                             })}
@@ -248,40 +282,39 @@ export default function Catalog({ auth }) {
                     ) : (
                         /* Empty state */
                         <div className="sketch-card p-8 sm:p-12 text-center bg-paper-grid rounded-2xl border-2 border-ink my-4">
-                            <div className="w-14 h-14 rounded-full bg-sketch-coral/30 border-2 border-ink shadow-sketch-xs mx-auto flex items-center justify-center mb-3">
-                                <Search className="w-6 h-6 text-ink stroke-[2.5]" />
+                            <div className="w-14 h-14 rounded-full bg-brand-subtle border-2 border-ink shadow-sketch-xs mx-auto flex items-center justify-center mb-3">
+                                {searchQuery ? (
+                                    <Search className="w-6 h-6 text-ink stroke-[2.5]" />
+                                ) : (
+                                    <PackageOpen className="w-6 h-6 text-brand stroke-[2.5]" />
+                                )}
                             </div>
                             <h3 className="font-black text-base text-ink">
-                                Tidak Ada Produk yang Cocok
+                                {searchQuery ? 'Tidak Ada Produk yang Cocok' : 'Belum Ada Produk di Kategori Ini'}
                             </h3>
                             <p className="text-xs text-ink-muted mt-1 max-w-sm mx-auto">
-                                Coba pilih sub-kategori lain atau bersihkan kata kunci pencarian kamu.
+                                {searchQuery
+                                    ? 'Coba pilih sub-kategori lain atau bersihkan kata kunci pencarian Anda.'
+                                    : 'Produk akan segera ditampilkan setelah ditambahkan oleh admin toko.'}
                             </p>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    setActiveSubCategory('all');
-                                }}
-                                className="sketch-btn px-4 py-2 mt-4 bg-brand text-white text-xs font-bold rounded-xl border-2 border-ink shadow-sketch-xs"
-                            >
-                                Reset Filter
-                            </button>
+                            {(searchQuery || activeCategory !== 'all') && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSearchQuery('');
+                                        setActiveCategory('all');
+                                        setActiveSubCategory('all');
+                                    }}
+                                    className="sketch-btn px-4 py-2 mt-4 bg-brand text-white text-xs font-bold rounded-xl border-2 border-ink shadow-sketch-xs"
+                                >
+                                    Reset Filter
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
 
             </div>
-
-            {/* Product Top Up Modal */}
-            <TopUpModal 
-                product={selectedProduct}
-                onClose={() => setSelectedProduct(null)}
-                onOrderCreated={() => {
-                    setSelectedProduct(null);
-                    setIsTrackerOpen(true);
-                }}
-            />
         </MainLayout>
     );
 }

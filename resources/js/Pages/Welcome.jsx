@@ -3,20 +3,9 @@ import { router, usePage } from '@inertiajs/react';
 import MainLayout from '../Layouts/MainLayout';
 import HeroBanner from '../Components/HeroBanner';
 import ProductGrid from '../Components/ProductGrid';
-import TopUpModal from '../Components/TopUpModal';
-import { MOCK_PRODUCTS } from '../data/mockProducts';
-import { 
-    Zap, 
-    ShieldCheck, 
-    Users, 
-    Award, 
-    Sparkles, 
-    ArrowRight, 
-    MessageCircle, 
-    CheckCircle2 
-} from 'lucide-react';
+import { MessageCircle, CheckCircle2 } from 'lucide-react';
 
-export default function Welcome({ auth, laravelVersion, phpVersion }) {
+export default function Welcome({ auth, categories = [], products = [], laravelVersion, phpVersion }) {
     const { site } = usePage().props;
     const siteName = site?.site_name || 'Maitri Project';
     const siteTagline = site?.site_tagline || 'Top Up Game & PPOB Murah, Cepat & Legal';
@@ -100,7 +89,8 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
 
                     {/* 4. Product Catalog / Game Grid */}
                     <ProductGrid
-                        products={MOCK_PRODUCTS}
+                        categories={categories}
+                        products={products}
                         activeCategory={activeCategory}
                         onSelectCategory={setActiveCategory}
                         searchQuery={searchQuery}
@@ -205,15 +195,6 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                         </div>
                     </section>
 
-                    {/* Modals */}
-                    <TopUpModal
-                        product={selectedProduct}
-                        onClose={() => setSelectedProduct(null)}
-                        onOrderCreated={(order) => {
-                            setSelectedProduct(null);
-                            setIsTrackingOpen(true);
-                        }}
-                    />
         </MainLayout>
     );
 }

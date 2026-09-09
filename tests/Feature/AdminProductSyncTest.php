@@ -87,8 +87,8 @@ class AdminProductSyncTest extends TestCase
         $response = $this->actingAs($admin)->post('/admin/products/sync');
         $response->assertRedirect();
 
-        $this->assertDatabaseCount('products', 2);
-        $this->assertDatabaseHas('products', [
+        $this->assertDatabaseCount('h2h_products', 2);
+        $this->assertDatabaseHas('h2h_products', [
             'buyer_sku_code' => 'ML-86',
             'product_name' => 'Mobile Legends - 86 Diamonds',
             'retail_price' => 22000,

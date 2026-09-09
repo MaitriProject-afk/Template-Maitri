@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { getProductDetailBySlug } from '@/data/productDataHelper';
 import { 
     ArrowLeft, 
     ArrowRight,
@@ -22,27 +21,37 @@ import {
     ChevronDown,
     Mail,
     Lock,
-    ExternalLink
+    ExternalLink,
+    Gamepad2,
+    PackageOpen
 } from 'lucide-react';
 
-export default function ProductDetail({ slug = 'indosat', auth }) {
+export default function ProductDetail({ slug, product: initialProduct, auth }) {
     const { site } = usePage().props;
     const siteName = site?.site_name || 'Maitri Project';
     const contactWhatsapp = site?.contact_whatsapp || '081234567890';
     const waNumber = contactWhatsapp.replace(/[^0-9]/g, '');
     const waUrl = waNumber.startsWith('0') ? `https://wa.me/62${waNumber.slice(1)}` : `https://wa.me/${waNumber}`;
 
-    // Resolve product data
-    const product = useMemo(() => {
-        return getProductDetailBySlug(slug);
-    }, [slug]);
+    // Resolve product data from controller props with graceful defaults
+    const product = initialProduct || {
+        name: 'Produk',
+        category: 'Layanan',
+        publisher: 'Maitri Official',
+        inputType: 'id_zone',
+        inputLabel: 'User ID',
+        inputPlaceholder: 'Masukkan User ID',
+        description: 'Layanan top up',
+        categories: ['Semua'],
+        items: [],
+    };
 
     // Form states
     const [targetInput, setTargetInput] = useState('');
     const [zoneInput, setZoneInput] = useState('');
     const [serverInput, setServerInput] = useState(product.serverOptions ? product.serverOptions[0] : '');
     const [selectedCategory, setSelectedCategory] = useState('Semua');
-    const [selectedItem, setSelectedItem] = useState(product.items[0] || null);
+    const [selectedItem, setSelectedItem] = useState((product.items && product.items[0]) || null);
     const [whatsapp, setWhatsapp] = useState('');
     const [email, setEmail] = useState((auth?.user?.email) || '');
     const [promoCode, setPromoCode] = useState('');
@@ -59,8 +68,9 @@ export default function ProductDetail({ slug = 'indosat', auth }) {
 
     // Filter items by sub-category tab
     const filteredItems = useMemo(() => {
-        if (selectedCategory === 'Semua') return product.items;
-        return product.items.filter(item => item.category === selectedCategory);
+        const items = product.items || [];
+        if (selectedCategory === 'Semua') return items;
+        return items.filter(item => item.category === selectedCategory);
     }, [product.items, selectedCategory]);
 
     // Calculations (QRIS 0.7% fee as requested)
@@ -133,6 +143,19 @@ export default function ProductDetail({ slug = 'indosat', auth }) {
 
     // Visual helper for product logo
     const renderBrandVisual = () => {
+        if (product.thumbnail) {
+            return (
+                <div className="w-full h-full bg-paper flex items-center justify-center p-2">
+                    <img 
+                        src={product.thumbnail} 
+                        alt={product.name} 
+                        className="w-full h-full object-contain" 
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                </div>
+            );
+        }
+
         switch (product.brandType) {
             case 'indosat':
                 return (
@@ -176,8 +199,8 @@ export default function ProductDetail({ slug = 'indosat', auth }) {
             default:
                 return (
                     <div className="w-full h-full bg-gradient-to-br from-brand via-brand-navy to-ink flex flex-col items-center justify-center p-3 text-white">
-                        <span className="font-black text-xl font-mono tracking-wider">{product.name.slice(0, 8).toUpperCase()}</span>
-                        <span className="text-[10px] font-bold text-white/80 uppercase mt-1">{product.publisher}</span>
+                        <span className="font-black text-xl font-mono tracking-wider">{(product.name || 'PRODUK').slice(0, 8).toUpperCase()}</span>
+                        <span className="text-[10px] font-bold text-white/80 uppercase mt-1">{product.publisher || 'OFFICIAL'}</span>
                     </div>
                 );
         }
@@ -484,57 +507,67 @@ export default function ProductDetail({ slug = 'indosat', auth }) {
                             </div>
 
                             {/* Denominations Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-3.5">
-                                {filteredItems.map((item) => {
-                                    const isSelected = selectedItem?.id === item.id;
-                                    return (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            onClick={() => setSelectedItem(item)}
-                                            className={`p-3 sm:p-3.5 rounded-2xl border-2 border-ink text-left transition-all relative flex flex-col justify-between group active:scale-98 ${
-                                                isSelected
-                                                    ? 'bg-brand-subtle border-brand ring-2 ring-brand shadow-sketch-xs font-bold scale-[1.02]'
-                                                    : 'bg-white hover:border-brand hover:bg-brand-subtle/20 shadow-sketch-xs'
-                                            }`}
-                                        >
-                                            {/* Item Badge */}
-                                            {item.badge && (
-                                                <div className="mb-1.5">
-                                                    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border font-bold ${
-                                                        isSelected 
-                                                            ? 'bg-brand text-white border-brand' 
-                                                            : 'bg-paper-dark text-ink border-ink'
-                                                    }`}>
-                                                        {item.badge}
+                            {filteredItems.length === 0 ? (
+                                <div className="text-center py-12 px-4 bg-paper border-2 border-dashed border-ink/20 rounded-2xl">
+                                    <PackageOpen className="w-10 h-10 text-ink-muted mx-auto mb-2 opacity-50" />
+                                    <p className="font-bold text-sm text-ink">Belum ada nominal tersedia</p>
+                                    <p className="text-xs text-ink-muted mt-1 max-w-sm mx-auto">
+                                        Item produk atau nominal untuk layanan ini sedang disiapkan oleh admin. Silakan cek kembali nanti.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-3.5">
+                                    {filteredItems.map((item) => {
+                                        const isSelected = selectedItem?.id === item.id;
+                                        return (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => setSelectedItem(item)}
+                                                className={`p-3 sm:p-3.5 rounded-2xl border-2 border-ink text-left transition-all relative flex flex-col justify-between group active:scale-98 ${
+                                                    isSelected
+                                                        ? 'bg-brand-subtle border-brand ring-2 ring-brand shadow-sketch-xs font-bold scale-[1.02]'
+                                                        : 'bg-white hover:border-brand hover:bg-brand-subtle/20 shadow-sketch-xs'
+                                                }`}
+                                            >
+                                                {/* Item Badge */}
+                                                {item.badge && (
+                                                    <div className="mb-1.5">
+                                                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border font-bold ${
+                                                            isSelected 
+                                                                ? 'bg-brand text-white border-brand' 
+                                                                : 'bg-paper-dark text-ink border-ink'
+                                                        }`}>
+                                                            {item.badge}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                <div>
+                                                    <p className="text-xs sm:text-sm font-black text-ink leading-snug line-clamp-2 group-hover:text-brand transition-colors">
+                                                        {item.name}
+                                                    </p>
+                                                    <p className="text-xs sm:text-sm font-black font-mono text-brand mt-1.5">
+                                                        {formatRp(item.price)}
+                                                    </p>
+                                                </div>
+
+                                                {/* Selection Check Circle */}
+                                                <div className="mt-2 pt-2 border-t border-ink/10 flex items-center justify-between">
+                                                    <span className="text-[10px] font-sketch text-ink-muted">
+                                                        ⚡ Proses Kilat
                                                     </span>
+                                                    <div className={`w-4 h-4 rounded-full border-2 border-ink flex items-center justify-center ${
+                                                        isSelected ? 'bg-brand text-white' : 'bg-white'
+                                                    }`}>
+                                                        {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                                    </div>
                                                 </div>
-                                            )}
-
-                                            <div>
-                                                <p className="text-xs sm:text-sm font-black text-ink leading-snug line-clamp-2 group-hover:text-brand transition-colors">
-                                                    {item.name}
-                                                </p>
-                                                <p className="text-xs sm:text-sm font-black font-mono text-brand mt-1.5">
-                                                    {formatRp(item.price)}
-                                                </p>
-                                            </div>
-
-                                            {/* Selection Check Circle */}
-                                            <div className="mt-2 pt-2 border-t border-ink/10 flex items-center justify-between">
-                                                <span className="text-[10px] font-sketch text-ink-muted">
-                                                    ⚡ Proses Kilat
-                                                </span>
-                                                <div className={`w-4 h-4 rounded-full border-2 border-ink flex items-center justify-center ${
-                                                    isSelected ? 'bg-brand text-white' : 'bg-white'
-                                                }`}>
-                                                    {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                                                </div>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         {/* STEP 3: Pilih Metode Pembayaran (HANYA QRIS) */}

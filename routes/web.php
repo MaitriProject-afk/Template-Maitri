@@ -1,36 +1,23 @@
 <?php
 
-use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\H2hProductController;
+use App\Http\Controllers\Admin\ProductManageController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
+use App\Http\Controllers\PublicCatalogController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
-
-Route::get('/katalog', function () {
-    return Inertia::render('Catalog');
-})->name('katalog');
-
+// Public Catalog & Landing
+Route::get('/', [PublicCatalogController::class, 'welcome'])->name('home');
+Route::get('/katalog', [PublicCatalogController::class, 'catalog'])->name('katalog');
 Route::get('/catalog', function () {
     return redirect()->route('katalog');
 });
 
-Route::get('/product/{slug}', function (string $slug) {
-    return Inertia::render('Product/Detail', [
-        'slug' => $slug,
-    ]);
-})->name('product.detail');
-
+Route::get('/product/{slug}', [PublicCatalogController::class, 'detail'])->name('product.detail');
 Route::get('/produk/{slug}', function (string $slug) {
     return redirect()->route('product.detail', ['slug' => $slug]);
 });
@@ -64,7 +51,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Admin Route (Protected strictly with 'admin' middleware: 403 for regular users)
+// Admin Routes (Strictly protected with 'admin' role middleware)
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/', function () {
         return Inertia::render('Admin/Index');
@@ -75,8 +62,31 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/settings/reset', [SettingController::class, 'reset'])->name('admin.settings.reset');
     Route::post('/settings/test-h2h', [SettingController::class, 'testH2h'])->name('admin.settings.test-h2h');
 
-    Route::get('/products', [ProductController::class, 'index'])->name('admin.products.index');
-    Route::post('/products/sync', [ProductController::class, 'sync'])->name('admin.products.sync');
+    // Category & Subcategory Management
+    Route::get('/categories', [CategoryController::class, 'index'])->name('admin.categories.index');
+    Route::post('/categories', [CategoryController::class, 'store'])->name('admin.categories.store');
+    Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('admin.categories.update');
+    Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('admin.categories.destroy');
+
+    Route::post('/subcategories', [CategoryController::class, 'storeSubCategory'])->name('admin.subcategories.store');
+    Route::put('/subcategories/{subCategory}', [CategoryController::class, 'updateSubCategory'])->name('admin.subcategories.update');
+    Route::delete('/subcategories/{subCategory}', [CategoryController::class, 'destroySubCategory'])->name('admin.subcategories.destroy');
+
+    // Parent Product & Product Item Management
+    Route::get('/products', [ProductManageController::class, 'index'])->name('admin.products.index');
+    Route::post('/products', [ProductManageController::class, 'store'])->name('admin.products.store');
+    Route::put('/products/{product}', [ProductManageController::class, 'update'])->name('admin.products.update');
+    Route::delete('/products/{product}', [ProductManageController::class, 'destroy'])->name('admin.products.destroy');
+
+    // Child Product Items CRUD
+    Route::post('/products/{product}/items', [ProductManageController::class, 'storeItem'])->name('admin.products.items.store');
+    Route::put('/products/items/{item}', [ProductManageController::class, 'updateItem'])->name('admin.products.items.update');
+    Route::delete('/products/items/{item}', [ProductManageController::class, 'destroyItem'])->name('admin.products.items.destroy');
+
+    // Raw H2H SKUs & Sync Catalog
+    Route::get('/h2h-products', [H2hProductController::class, 'index'])->name('admin.h2h.index');
+    Route::post('/h2h-products/sync', [H2hProductController::class, 'sync'])->name('admin.h2h.sync');
+    Route::post('/products/sync', [H2hProductController::class, 'sync'])->name('admin.products.sync'); // Alias for backward compatibility
 });
 
 require __DIR__.'/auth.php';

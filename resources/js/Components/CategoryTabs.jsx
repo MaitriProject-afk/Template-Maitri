@@ -5,24 +5,26 @@ import {
     Ticket, 
     Smartphone, 
     Zap, 
-    Wallet 
+    Wallet,
+    Layers
 } from 'lucide-react';
 
-export const CATEGORIES = [
-    { id: 'all', name: 'Semua Produk', icon: Flame, badge: 'HOT' },
-    { id: 'games', name: 'Game Populer', icon: Gamepad2, badge: '25+' },
-    { id: 'voucher', name: 'Voucher Digital', icon: Ticket, badge: 'Murah' },
-    { id: 'pulsa', name: 'Pulsa & Data', icon: Smartphone, badge: 'Promo' },
-    { id: 'pln', name: 'Listrik & PPOB', icon: Zap, badge: 'Instan' },
-    { id: 'emoney', name: 'E-Money', icon: Wallet, badge: 'Bebas Admin' },
-];
+export default function CategoryTabs({ categories = [], activeCategory, onSelectCategory }) {
+    // Generate tabs: prepend 'Semua Produk'
+    const tabs = [
+        { id: 'all', name: 'Semua Produk', icon: Flame },
+        ...categories.map((c) => ({
+            id: c.slug || String(c.id),
+            name: c.name,
+            icon: Layers,
+        })),
+    ];
 
-export default function CategoryTabs({ activeCategory, onSelectCategory }) {
     return (
         <div className="w-full overflow-x-auto no-scrollbar py-2">
             <div className="flex items-center gap-2.5 min-w-max">
-                {CATEGORIES.map((cat) => {
-                    const Icon = cat.icon;
+                {tabs.map((cat) => {
+                    const Icon = cat.icon || Layers;
                     const isActive = activeCategory === cat.id;
 
                     return (
@@ -38,15 +40,6 @@ export default function CategoryTabs({ activeCategory, onSelectCategory }) {
                         >
                             <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-brand'}`} />
                             <span>{cat.name}</span>
-                            {cat.badge && (
-                                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
-                                    isActive 
-                                        ? 'bg-white/20 text-white border-white/40' 
-                                        : 'bg-paper-dark text-ink-muted border-ink/20'
-                                }`}>
-                                    {cat.badge}
-                                </span>
-                            )}
                         </button>
                     );
                 })}
