@@ -19,10 +19,10 @@ class CategoryController extends Controller
     public function index(): Response
     {
         $categories = Category::with(['subCategories' => function ($q) {
-            $q->withCount('products')->orderBy('sort_order');
+            $q->withCount('products')->orderBy('name', 'asc');
         }])
             ->withCount('products')
-            ->orderBy('sort_order')
+            ->orderBy('name', 'asc')
             ->get();
 
         return Inertia::render('Admin/Categories/Index', [

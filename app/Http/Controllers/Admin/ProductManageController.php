@@ -49,12 +49,13 @@ class ProductManageController extends Controller
             $query->where('is_active', $isActive);
         }
 
-        $products = $query->orderBy('sort_order')
-            ->orderBy('name')
+        $products = $query->orderBy('name', 'asc')
             ->paginate(15)
             ->withQueryString();
 
-        $categories = Category::with('subCategories')->orderBy('sort_order')->get();
+        $categories = Category::with(['subCategories' => function ($q) {
+            $q->orderBy('name', 'asc');
+        }])->orderBy('name', 'asc')->get();
         $h2hSkus = H2hProduct::select('buyer_sku_code', 'product_name', 'category', 'brand', 'retail_price', 'h2h_price', 'status', 'desc', 'start_cut_off', 'end_cut_off')
             ->orderBy('brand')
             ->orderBy('h2h_price')
@@ -139,11 +140,13 @@ class ProductManageController extends Controller
             'category:id,name,slug',
             'subCategory:id,name,slug',
             'items' => function ($q) {
-                $q->orderBy('sort_order')->orderBy('price');
+                $q->orderBy('price', 'asc');
             },
         ]);
 
-        $categories = Category::with('subCategories')->orderBy('sort_order')->get();
+        $categories = Category::with(['subCategories' => function ($q) {
+            $q->orderBy('name', 'asc');
+        }])->orderBy('name', 'asc')->get();
         $h2hSkus = H2hProduct::select('buyer_sku_code', 'product_name', 'category', 'brand', 'retail_price', 'h2h_price', 'status', 'desc', 'start_cut_off', 'end_cut_off')
             ->orderBy('brand')
             ->orderBy('h2h_price')

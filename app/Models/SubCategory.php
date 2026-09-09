@@ -29,6 +29,6 @@ class SubCategory extends Model
 
     public function products(): HasMany
     {
-        return $this->hasMany(Product::class)->orderBy('sort_order');
+        return $this->hasMany(Product::class)->orderBy('name', 'asc');
     }
 }

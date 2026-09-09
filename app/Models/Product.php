@@ -49,11 +49,11 @@ class Product extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(ProductItem::class)->orderBy('sort_order');
+        return $this->hasMany(ProductItem::class)->orderBy('price', 'asc');
     }
 
     public function activeItems(): HasMany
     {
-        return $this->hasMany(ProductItem::class)->where('is_active', true)->orderBy('sort_order');
+        return $this->hasMany(ProductItem::class)->where('is_active', true)->orderBy('price', 'asc');
     }
 }

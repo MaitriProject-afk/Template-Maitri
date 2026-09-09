@@ -582,17 +582,11 @@ export default function ProductEdit({ auth, product, categories = [], h2hSkus = 
                                             </div>
                                         </div>
 
-                                        {/* Sort order & Active Checkbox */}
+                                        {/* Auto sort indicator & Active Checkbox */}
                                         <div className="flex items-center justify-between gap-4 pt-1">
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-xs font-mono font-bold text-ink">Urutan:</label>
-                                                <input
-                                                    type="number"
-                                                    value={itemFormData.sort_order}
-                                                    onChange={(e) => setItemFormData({ ...itemFormData, sort_order: Number(e.target.value) })}
-                                                    className="w-16 px-2 py-1 bg-white border-2 border-ink rounded-lg text-xs font-mono font-bold"
-                                                />
-                                            </div>
+                                            <span className="text-[11px] font-mono font-bold text-ink-muted">
+                                                ⚡ Diurutkan otomatis: Termurah → Termahal
+                                            </span>
 
                                             <label className="flex items-center gap-2 cursor-pointer select-none">
                                                 <input
@@ -698,9 +692,6 @@ export default function ProductEdit({ auth, product, categories = [], h2hSkus = 
                                                     <td className="py-3.5 px-4">
                                                         <div className="font-black text-ink text-xs sm:text-sm">
                                                             {item.name}
-                                                        </div>
-                                                        <div className="text-[10px] text-ink-muted font-mono mt-0.5">
-                                                            Urutan: #{item.sort_order}
                                                         </div>
                                                     </td>
                                                     <td className="py-3.5 px-4">
@@ -983,17 +974,11 @@ export default function ProductEdit({ auth, product, categories = [], h2hSkus = 
                                 />
                             </div>
 
-                            {/* Sort order & Active */}
+                            {/* Auto-sort & Active status */}
                             <div className="flex items-center justify-between gap-4 pt-3 border-t-2 border-ink/10">
-                                <div className="flex items-center gap-2">
-                                    <label className="text-xs font-mono font-bold text-ink">Urutan Tampilan:</label>
-                                    <input
-                                        type="number"
-                                        value={productForm.sort_order}
-                                        onChange={(e) => setProductForm('sort_order', Number(e.target.value))}
-                                        className="w-20 px-3 py-1.5 bg-white border-2 border-ink rounded-xl text-xs font-mono font-bold shadow-sketch-xs"
-                                    />
-                                </div>
+                                <span className="text-xs font-mono font-bold text-ink-muted">
+                                    ⚡ Diurutkan otomatis berdasarkan abjad nama produk (A - Z)
+                                </span>
 
                                 <label className="flex items-center gap-2 cursor-pointer select-none">
                                     <input

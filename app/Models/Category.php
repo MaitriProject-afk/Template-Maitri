@@ -22,11 +22,11 @@ class Category extends Model
 
     public function subCategories(): HasMany
     {
-        return $this->hasMany(SubCategory::class)->orderBy('sort_order');
+        return $this->hasMany(SubCategory::class)->orderBy('name', 'asc');
     }
 
     public function products(): HasMany
     {
-        return $this->hasMany(Product::class)->orderBy('sort_order');
+        return $this->hasMany(Product::class)->orderBy('name', 'asc');
     }
 }

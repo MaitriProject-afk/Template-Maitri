@@ -19,12 +19,12 @@ class PublicCatalogController extends Controller
     public function welcome(): Response
     {
         $categories = Category::where('is_active', true)
-            ->orderBy('sort_order')
+            ->orderBy('name', 'asc')
             ->get(['id', 'name', 'slug', 'icon']);
 
         $products = Product::with(['category:id,name,slug', 'subCategory:id,name,slug', 'activeItems'])
             ->where('is_active', true)
-            ->orderBy('sort_order')
+            ->orderBy('name', 'asc')
             ->take(20)
             ->get()
             ->map(function ($prod) {
@@ -64,19 +64,19 @@ class PublicCatalogController extends Controller
     public function catalog(Request $request): Response
     {
         $categories = Category::with(['subCategories' => function ($q) {
-            $q->where('is_active', true)->orderBy('sort_order');
+            $q->where('is_active', true)->orderBy('name', 'asc');
         }])
             ->where('is_active', true)
-            ->orderBy('sort_order')
+            ->orderBy('name', 'asc')
             ->get();
 
         $subCategories = SubCategory::where('is_active', true)
-            ->orderBy('sort_order')
+            ->orderBy('name', 'asc')
             ->get(['id', 'category_id', 'name', 'slug']);
 
         $products = Product::with(['category:id,name,slug', 'subCategory:id,name,slug', 'activeItems'])
             ->where('is_active', true)
-            ->orderBy('sort_order')
+            ->orderBy('name', 'asc')
             ->get()
             ->map(function ($prod) {
                 $minPrice = $prod->activeItems->min('price') ?? 0;
