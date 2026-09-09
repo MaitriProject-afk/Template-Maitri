@@ -8,6 +8,7 @@ use App\Models\ProductItem;
 use App\Models\SubCategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class CategoryAndProductHierarchyTest extends TestCase
@@ -216,5 +217,53 @@ class CategoryAndProductHierarchyTest extends TestCase
 
         $response = $this->actingAs($admin)->get("/admin/products/{$product->id}/edit");
         $response->assertStatus(200);
+    }
+
+    public function test_admin_can_upload_thumbnail_image_or_use_url(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $category = Category::create(['name' => 'Games', 'slug' => 'games', 'is_active' => true]);
+
+        // 1. Create product with direct URL thumbnail
+        $response = $this->actingAs($admin)->post('/admin/products', [
+            'category_id' => $category->id,
+            'name' => 'Free Fire Max',
+            'slug' => 'free-fire-max',
+            'brand' => 'Garena',
+            'input_type' => 'single_id',
+            'input_label' => 'Player ID',
+            'thumbnail' => 'https://example.com/ff.png',
+            'is_active' => true,
+        ]);
+
+        $response->assertRedirect();
+        $product = Product::where('slug', 'free-fire-max')->first();
+        $this->assertNotNull($product);
+        $this->assertEquals('https://example.com/ff.png', $product->thumbnail);
+
+        // 2. Update product by uploading an image file
+        $fakeImage = UploadedFile::fake()->image('logo.webp', 100, 100);
+        $updateResponse = $this->actingAs($admin)->put("/admin/products/{$product->id}", [
+            'category_id' => $category->id,
+            'name' => 'Free Fire Max Updated',
+            'slug' => 'free-fire-max',
+            'brand' => 'Garena',
+            'input_type' => 'single_id',
+            'input_label' => 'Player ID',
+            'input_placeholder' => 'Masukkan Player ID',
+            'thumbnail_file' => $fakeImage,
+            'is_active' => true,
+        ]);
+
+        $updateResponse->assertRedirect();
+        $product->refresh();
+        $this->assertStringStartsWith('/uploads/products/', $product->thumbnail);
+        $uploadedFilePath = public_path(ltrim($product->thumbnail, '/'));
+        $this->assertFileExists($uploadedFilePath);
+
+        // Clean up created fake file
+        if (file_exists($uploadedFilePath)) {
+            unlink($uploadedFilePath);
+        }
     }
 }

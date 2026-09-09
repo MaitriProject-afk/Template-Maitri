@@ -22,6 +22,9 @@ import {
     ArrowUpDown,
     CheckCircle2,
     Gamepad2,
+    UploadCloud,
+    Link2,
+    Image as ImageIcon,
 } from 'lucide-react';
 
 export default function ProductManage({
@@ -52,7 +55,7 @@ export default function ProductManage({
             slug: '',
             brand: '',
             thumbnail: '',
-            banner: '',
+            thumbnail_file: null,
             description: '',
             input_type: 'id_zone',
             input_label: 'User ID',
@@ -65,6 +68,8 @@ export default function ProductManage({
             is_active: true,
         },
     });
+    const [productThumbTab, setProductThumbTab] = useState('upload'); // 'upload' | 'url'
+    const [productFilePreview, setProductFilePreview] = useState(null);
 
     // Child Item Modal State
     const [itemModal, setItemModal] = useState({
@@ -125,6 +130,8 @@ export default function ProductManage({
     // Open Add Parent Product Modal
     const openAddProduct = () => {
         const defaultCatId = categories.length > 0 ? categories[0].id : '';
+        setProductFilePreview(null);
+        setProductThumbTab('upload');
         setProductModal({
             isOpen: true,
             isEdit: false,
@@ -136,7 +143,7 @@ export default function ProductManage({
                 slug: '',
                 brand: '',
                 thumbnail: '',
-                banner: '',
+                thumbnail_file: null,
                 description: '',
                 input_type: 'id_zone',
                 input_label: 'User ID',
@@ -152,6 +159,8 @@ export default function ProductManage({
 
     // Open Edit Parent Product Modal
     const openEditProduct = (prod) => {
+        setProductFilePreview(null);
+        setProductThumbTab('upload');
         setProductModal({
             isOpen: true,
             isEdit: true,
@@ -163,7 +172,7 @@ export default function ProductManage({
                 slug: prod.slug,
                 brand: prod.brand || '',
                 thumbnail: prod.thumbnail || '',
-                banner: prod.banner || '',
+                thumbnail_file: null,
                 description: prod.description || '',
                 input_type: prod.input_type || 'id_zone',
                 input_label: prod.input_label || 'User ID',
@@ -182,12 +191,23 @@ export default function ProductManage({
         const { isEdit, data } = productModal;
 
         if (isEdit) {
-            router.put(`/admin/products/${data.id}`, data, {
-                onSuccess: () => setProductModal({ isOpen: false, isEdit: false, data: {} }),
+            router.post(`/admin/products/${data.id}`, {
+                ...data,
+                _method: 'PUT',
+            }, {
+                forceFormData: true,
+                onSuccess: () => {
+                    setProductModal({ isOpen: false, isEdit: false, data: {} });
+                    setProductFilePreview(null);
+                },
             });
         } else {
             router.post('/admin/products', data, {
-                onSuccess: () => setProductModal({ isOpen: false, isEdit: false, data: {} }),
+                forceFormData: true,
+                onSuccess: () => {
+                    setProductModal({ isOpen: false, isEdit: false, data: {} });
+                    setProductFilePreview(null);
+                },
             });
         }
     };
@@ -803,37 +823,120 @@ export default function ProductManage({
                                 />
                             </div>
 
-                            {/* Thumbnail & Banner */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-ink font-bold mb-1">URL Thumbnail Logo</label>
-                                    <input
-                                        type="text"
-                                        placeholder="https://... atau /images/mlbb.png"
-                                        value={productModal.data.thumbnail || ''}
-                                        onChange={(e) =>
-                                            setProductModal({
-                                                ...productModal,
-                                                data: { ...productModal.data, thumbnail: e.target.value },
-                                            })
-                                        }
-                                        className="sketch-input w-full px-3.5 py-2 rounded-xl border-2 border-ink bg-paper-light focus:bg-white text-xs"
-                                    />
+                            {/* Thumbnail Image (Upload or URL) */}
+                            <div className="p-3 bg-paper-light border-2 border-ink/20 rounded-2xl space-y-2.5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-ink/10 pb-2">
+                                    <div>
+                                        <label className="block text-ink font-bold text-xs">Thumbnail Logo / Icon</label>
+                                        <span className="text-[10px] text-ink-muted">Bisa upload gambar ke public asset atau gunakan URL link.</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 bg-white border-2 border-ink p-0.5 rounded-lg text-xs font-bold shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => setProductThumbTab('upload')}
+                                            className={`px-2.5 py-0.5 rounded transition-colors flex items-center gap-1 text-[11px] ${
+                                                productThumbTab === 'upload'
+                                                    ? 'bg-brand text-white'
+                                                    : 'text-ink hover:text-brand'
+                                            }`}
+                                        >
+                                            <UploadCloud className="w-3 h-3" />
+                                            <span>Upload</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setProductThumbTab('url')}
+                                            className={`px-2.5 py-0.5 rounded transition-colors flex items-center gap-1 text-[11px] ${
+                                                productThumbTab === 'url'
+                                                    ? 'bg-brand text-white'
+                                                    : 'text-ink hover:text-brand'
+                                            }`}
+                                        >
+                                            <Link2 className="w-3 h-3" />
+                                            <span>URL Web</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-ink font-bold mb-1">URL Banner Poster</label>
-                                    <input
-                                        type="text"
-                                        placeholder="https://... atau /images/banner.png"
-                                        value={productModal.data.banner || ''}
-                                        onChange={(e) =>
-                                            setProductModal({
-                                                ...productModal,
-                                                data: { ...productModal.data, banner: e.target.value },
-                                            })
-                                        }
-                                        className="sketch-input w-full px-3.5 py-2 rounded-xl border-2 border-ink bg-paper-light focus:bg-white text-xs"
-                                    />
+
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                        {productThumbTab === 'upload' ? (
+                                            <div className="space-y-1">
+                                                <label className="border-2 border-dashed border-ink/30 hover:border-brand bg-white hover:bg-brand-subtle/20 rounded-xl p-2.5 flex flex-col items-center justify-center cursor-pointer transition-all text-center">
+                                                    <UploadCloud className="w-5 h-5 text-brand mb-1 stroke-[2]" />
+                                                    <span className="text-[11px] font-bold text-ink truncate max-w-full">
+                                                        {productModal.data.thumbnail_file
+                                                            ? productModal.data.thumbnail_file.name
+                                                            : 'Klik untuk memilih file gambar (PNG, JPG, WEBP)'}
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) {
+                                                                setProductModal({
+                                                                    ...productModal,
+                                                                    data: { ...productModal.data, thumbnail_file: file },
+                                                                });
+                                                                setProductFilePreview(URL.createObjectURL(file));
+                                                            }
+                                                        }}
+                                                        className="hidden"
+                                                    />
+                                                </label>
+                                                {productModal.data.thumbnail_file && (
+                                                    <div className="flex items-center justify-between text-[11px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                        <span className="truncate">✓ {productModal.data.thumbnail_file.name}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setProductModal({
+                                                                    ...productModal,
+                                                                    data: { ...productModal.data, thumbnail_file: null },
+                                                                });
+                                                                setProductFilePreview(null);
+                                                            }}
+                                                            className="text-rose-600 hover:text-rose-800 font-bold ml-1"
+                                                        >
+                                                            Hapus
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="https://... atau /uploads/products/..."
+                                                    value={productModal.data.thumbnail || ''}
+                                                    onChange={(e) =>
+                                                        setProductModal({
+                                                            ...productModal,
+                                                            data: { ...productModal.data, thumbnail: e.target.value },
+                                                        })
+                                                    }
+                                                    className="sketch-input w-full px-3 py-1.5 rounded-xl border-2 border-ink bg-white text-xs font-mono"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Preview Icon */}
+                                    <div className="w-14 h-14 rounded-xl border-2 border-ink bg-white shadow-sketch-xs overflow-hidden shrink-0 flex items-center justify-center p-1">
+                                        {productFilePreview ? (
+                                            <img src={productFilePreview} alt="Preview" className="w-full h-full object-contain" />
+                                        ) : productModal.data.thumbnail ? (
+                                            <img
+                                                src={productModal.data.thumbnail}
+                                                alt="Thumbnail"
+                                                className="w-full h-full object-contain"
+                                                onError={(e) => { e.currentTarget.style.opacity = '0.3'; }}
+                                            />
+                                        ) : (
+                                            <ImageIcon className="w-6 h-6 text-ink-muted opacity-40" />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 

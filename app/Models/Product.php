@@ -15,7 +15,6 @@ class Product extends Model
         'slug',
         'brand',
         'thumbnail',
-        'banner',
         'description',
         'input_type',
         'input_label',

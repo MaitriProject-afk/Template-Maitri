@@ -22,7 +22,10 @@ import {
     Save,
     X,
     Filter,
-    ArrowUpDown
+    ArrowUpDown,
+    UploadCloud,
+    Image as ImageIcon,
+    Link2
 } from 'lucide-react';
 
 export default function ProductEdit({ auth, product, categories = [], h2hSkus = [] }) {
@@ -39,17 +42,18 @@ export default function ProductEdit({ auth, product, categories = [], h2hSkus = 
     const { 
         data: productForm, 
         setData: setProductForm, 
-        put: putProduct, 
+        post: postProduct, 
         processing: productProcessing, 
         errors: productErrors 
     } = useForm({
+        _method: 'PUT',
         category_id: product.category_id || '',
         sub_category_id: product.sub_category_id || '',
         name: product.name || '',
         slug: product.slug || '',
         brand: product.brand || '',
         thumbnail: product.thumbnail || '',
-        banner: product.banner || '',
+        thumbnail_file: null,
         description: product.description || '',
         input_type: product.input_type || 'id_zone',
         input_label: product.input_label || 'User ID',
@@ -62,6 +66,25 @@ export default function ProductEdit({ auth, product, categories = [], h2hSkus = 
         is_active: Boolean(product.is_active),
     });
 
+    const [thumbTab, setThumbTab] = useState('upload'); // 'upload' | 'url'
+    const [filePreview, setFilePreview] = useState(null);
+
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setProductForm('thumbnail_file', file);
+            setFilePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleClearFile = () => {
+        setProductForm('thumbnail_file', null);
+        if (filePreview) {
+            URL.revokeObjectURL(filePreview);
+            setFilePreview(null);
+        }
+    };
+
     // Subcategories available for selected category
     const availableSubCategories = useMemo(() => {
         if (!productForm.category_id) return [];
@@ -71,7 +94,10 @@ export default function ProductEdit({ auth, product, categories = [], h2hSkus = 
 
     const handleProductSubmit = (e) => {
         e.preventDefault();
-        putProduct(route('admin.products.update', product.id));
+        postProduct(route('admin.products.update', product.id), {
+            forceFormData: true,
+            preserveScroll: true,
+        });
     };
 
     // ==========================================
@@ -926,37 +952,134 @@ export default function ProductEdit({ auth, product, categories = [], h2hSkus = 
                                 </div>
                             </div>
 
-                            {/* Thumbnail & Banner Image URLs */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <label className="block text-xs font-mono font-bold text-ink mb-1.5">
-                                        THUMBNAIL IMAGE URL
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={productForm.thumbnail}
-                                        onChange={(e) => setProductForm('thumbnail', e.target.value)}
-                                        placeholder="https://... atau /images/..."
-                                        className="w-full px-4 py-2 bg-white border-2 border-ink rounded-xl text-xs font-mono shadow-sketch-xs"
-                                    />
-                                    {productForm.thumbnail && (
-                                        <div className="mt-2 w-16 h-16 rounded-xl border-2 border-ink bg-paper p-1 shadow-sketch-xs overflow-hidden">
-                                            <img src={productForm.thumbnail} alt="Preview" className="w-full h-full object-contain" />
-                                        </div>
-                                    )}
+                            {/* Thumbnail Image (Upload or URL) */}
+                            <div className="p-4 sm:p-5 bg-paper-light border-2 border-ink/20 rounded-2xl space-y-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-ink/10 pb-2.5">
+                                    <div>
+                                        <label className="block text-xs font-mono font-black text-ink">
+                                            THUMBNAIL PRODUK (ICON / LOGO)
+                                        </label>
+                                        <p className="text-[11px] text-ink-muted">
+                                            Bisa upload file gambar langsung ke public asset atau input URL link gambar.
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-1 bg-white border-2 border-ink p-0.5 rounded-xl text-xs font-bold shadow-sketch-xs shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => setThumbTab('upload')}
+                                            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 ${
+                                                thumbTab === 'upload'
+                                                    ? 'bg-brand text-white shadow-xs'
+                                                    : 'text-ink hover:text-brand'
+                                            }`}
+                                        >
+                                            <UploadCloud className="w-3.5 h-3.5" />
+                                            <span>Upload Gambar</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setThumbTab('url')}
+                                            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 ${
+                                                thumbTab === 'url'
+                                                    ? 'bg-brand text-white shadow-xs'
+                                                    : 'text-ink hover:text-brand'
+                                            }`}
+                                        >
+                                            <Link2 className="w-3.5 h-3.5" />
+                                            <span>Input URL Web</span>
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-xs font-mono font-bold text-ink mb-1.5">
-                                        BANNER IMAGE URL
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={productForm.banner}
-                                        onChange={(e) => setProductForm('banner', e.target.value)}
-                                        placeholder="https://... atau /images/..."
-                                        className="w-full px-4 py-2 bg-white border-2 border-ink rounded-xl text-xs font-mono shadow-sketch-xs"
-                                    />
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                                    <div className="md:col-span-2">
+                                        {thumbTab === 'upload' ? (
+                                            <div className="space-y-2">
+                                                <label className="border-2 border-dashed border-ink/40 hover:border-brand bg-white hover:bg-brand-subtle/20 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all text-center">
+                                                    <UploadCloud className="w-7 h-7 text-brand mb-1.5 stroke-[2.2]" />
+                                                    <span className="text-xs font-bold text-ink">
+                                                        {productForm.thumbnail_file
+                                                            ? productForm.thumbnail_file.name
+                                                            : 'Pilih file gambar dari komputer / HP'}
+                                                    </span>
+                                                    <span className="text-[10px] text-ink-muted font-mono mt-0.5">
+                                                        Format: JPG, PNG, WEBP, atau SVG (Maks. 3MB)
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleFileChange}
+                                                        className="hidden"
+                                                    />
+                                                </label>
+                                                {productForm.thumbnail_file && (
+                                                    <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50 border border-emerald-300 rounded-lg text-xs">
+                                                        <span className="text-emerald-800 font-bold truncate max-w-xs">
+                                                            ✓ File: {productForm.thumbnail_file.name} ({(productForm.thumbnail_file.size / 1024).toFixed(0)} KB)
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleClearFile}
+                                                            className="text-rose-600 hover:text-rose-800 font-bold text-[11px] ml-2"
+                                                        >
+                                                            Hapus
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                <p className="text-[10px] text-ink-muted italic">
+                                                    💡 Gambar akan disimpan ke folder public asset <code>/uploads/products/</code> saat form disimpan.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <div>
+                                                    <input
+                                                        type="text"
+                                                        value={productForm.thumbnail}
+                                                        onChange={(e) => setProductForm('thumbnail', e.target.value)}
+                                                        placeholder="https://... atau /uploads/products/gambar.png"
+                                                        className="w-full px-3.5 py-2.5 bg-white border-2 border-ink rounded-xl text-xs font-mono shadow-sketch-xs focus:ring-0 focus:border-brand"
+                                                    />
+                                                </div>
+                                                <p className="text-[10px] text-ink-muted">
+                                                    Gunakan URL gambar langsung dari internet atau path link file yang sudah ada.
+                                                </p>
+                                            </div>
+                                        )}
+                                        {productErrors.thumbnail && (
+                                            <p className="text-xs text-rose-600 font-bold mt-1">{productErrors.thumbnail}</p>
+                                        )}
+                                        {productErrors.thumbnail_file && (
+                                            <p className="text-xs text-rose-600 font-bold mt-1">{productErrors.thumbnail_file}</p>
+                                        )}
+                                    </div>
+
+                                    {/* Preview Thumbnail */}
+                                    <div className="flex flex-col items-center justify-center p-3 bg-white border-2 border-ink rounded-2xl shadow-sketch-xs">
+                                        <span className="text-[10px] font-mono font-bold text-ink-muted uppercase mb-2">
+                                            {filePreview ? 'Preview File Baru' : 'Thumbnail Aktif'}
+                                        </span>
+                                        <div className="w-20 h-20 rounded-2xl border-2 border-ink bg-paper p-1 shadow-sketch-xs overflow-hidden flex items-center justify-center">
+                                            {filePreview ? (
+                                                <img src={filePreview} alt="Preview Baru" className="w-full h-full object-contain" />
+                                            ) : productForm.thumbnail ? (
+                                                <img 
+                                                    src={productForm.thumbnail} 
+                                                    alt="Thumbnail" 
+                                                    className="w-full h-full object-contain" 
+                                                    onError={(e) => { e.currentTarget.style.opacity = '0.3'; }}
+                                                />
+                                            ) : (
+                                                <div className="text-ink-muted flex flex-col items-center justify-center p-2 text-center">
+                                                    <ImageIcon className="w-6 h-6 stroke-[1.5] mb-1 opacity-40" />
+                                                    <span className="text-[9px] font-bold">Tanpa Logo</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="text-[10px] font-mono font-bold text-brand mt-2 truncate max-w-full text-center">
+                                            {filePreview ? 'File Baru Siap Upload' : productForm.thumbnail ? 'Terpasang' : 'Belum ada'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 

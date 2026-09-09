@@ -85,8 +85,8 @@ class ProductManageController extends Controller
             'name' => 'required|string|max:150',
             'slug' => 'nullable|string|max:180|unique:products,slug',
             'brand' => 'nullable|string|max:100',
-            'thumbnail' => 'nullable|string|max:255',
-            'banner' => 'nullable|string|max:255',
+            'thumbnail' => 'nullable',
+            'thumbnail_file' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:3072',
             'description' => 'nullable|string',
             'input_type' => 'required|string|in:single_id,id_only,id_zone,game_user_zone,phone,server_select,game_user_server',
             'input_label' => 'nullable|string|max:100',
@@ -125,6 +125,20 @@ class ProductManageController extends Controller
         $validated['sort_order'] = $validated['sort_order'] ?? 0;
         $validated['is_active'] = $validated['is_active'] ?? true;
         $validated['has_zone_id'] = $validated['has_zone_id'] ?? false;
+
+        $file = $request->file('thumbnail_file') ?? $request->file('thumbnail');
+        if ($file && $file->isValid()) {
+            $destination = public_path('uploads/products');
+            if (! file_exists($destination)) {
+                mkdir($destination, 0755, true);
+            }
+            $filename = time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
+            $file->move($destination, $filename);
+            $validated['thumbnail'] = '/uploads/products/'.$filename;
+        } elseif (is_string($request->input('thumbnail'))) {
+            $validated['thumbnail'] = $request->input('thumbnail');
+        }
+        unset($validated['thumbnail_file']);
 
         $product = Product::create($validated);
 
@@ -170,8 +184,8 @@ class ProductManageController extends Controller
             'name' => 'required|string|max:150',
             'slug' => 'required|string|max:180|unique:products,slug,'.$product->id,
             'brand' => 'nullable|string|max:100',
-            'thumbnail' => 'nullable|string|max:255',
-            'banner' => 'nullable|string|max:255',
+            'thumbnail' => 'nullable',
+            'thumbnail_file' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:3072',
             'description' => 'nullable|string',
             'input_type' => 'required|string|in:single_id,id_only,id_zone,game_user_zone,phone,server_select,game_user_server',
             'input_label' => 'required|string|max:100',
@@ -196,6 +210,20 @@ class ProductManageController extends Controller
         $validated['sort_order'] = $validated['sort_order'] ?? 0;
         $validated['is_active'] = $validated['is_active'] ?? true;
         $validated['has_zone_id'] = $validated['has_zone_id'] ?? false;
+
+        $file = $request->file('thumbnail_file') ?? $request->file('thumbnail');
+        if ($file && $file->isValid()) {
+            $destination = public_path('uploads/products');
+            if (! file_exists($destination)) {
+                mkdir($destination, 0755, true);
+            }
+            $filename = time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
+            $file->move($destination, $filename);
+            $validated['thumbnail'] = '/uploads/products/'.$filename;
+        } elseif (is_string($request->input('thumbnail'))) {
+            $validated['thumbnail'] = $request->input('thumbnail');
+        }
+        unset($validated['thumbnail_file']);
 
         $product->update($validated);
 
