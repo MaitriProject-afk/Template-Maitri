@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        background-color: #f8fafc;
+        color: #0f172a;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+}
+
+/* Paper Grid / Dot Pattern Background (Clean Blueprint & White Paper) */
+.bg-paper-grid {
+    background-color: #f8fafc;
+    background-image: radial-gradient(#cbd5e1 1.2px, transparent 1.2px);
+    background-size: 20px 20px;
+}
+
+.bg-paper-grid-dense {
+    background-color: #ffffff;
+    background-image: radial-gradient(#93c5fd 1px, transparent 1px);
+    background-size: 14px 14px;
+}
+
+/* Sketchbook Border & Shadow Utilities (Deep Ink #0f172a) */
+.sketch-card {
+    background-color: #ffffff;
+    border: 2.5px solid #0f172a;
+    border-radius: 1rem;
+    box-shadow: 4px 4px 0px #0f172a;
+    transition: all 0.15s ease-in-out;
+}
+
+.sketch-card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #0f172a;
+}
+
+.sketch-card:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #0f172a;
+}
+
+.sketch-btn {
+    border: 2px solid #0f172a;
+    box-shadow: 3px 3px 0px #0f172a;
+    transition: all 0.1s ease-in-out;
+}
+
+.sketch-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0px #0f172a;
+}
+
+.sketch-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px #0f172a;
+}
+
+/* Custom Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
