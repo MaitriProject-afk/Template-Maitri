@@ -23,7 +23,6 @@ class DatabaseSeeder extends Seeder
                 'password' => bcrypt('password123'),
                 'role' => 'admin',
                 'phone' => '081234567890',
-                'balance' => 5000000,
             ]
         );
 
@@ -35,7 +34,6 @@ class DatabaseSeeder extends Seeder
                 'password' => bcrypt('password123'),
                 'role' => 'user',
                 'phone' => null,
-                'balance' => 0,
             ]
         );
     }

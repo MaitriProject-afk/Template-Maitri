@@ -11,7 +11,6 @@ import {
     ShieldCheck,
     Layers,
     User,
-    Wallet,
     Menu
 } from 'lucide-react';
 
@@ -28,10 +27,6 @@ export default function Navbar({
     const siteSuffix = site?.brand_logo_text_suffix || 'TOPUP';
     const siteTagline = site?.site_tagline || 'Sketsa Top Up Game & PPOB';
     const [showBanner, setShowBanner] = useState(true);
-
-    const formatRp = (num) => {
-        return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
-    };
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const handleSearchKeyDown = (e) => {
@@ -159,16 +154,6 @@ export default function Navbar({
                     <div className="hidden sm:flex items-center gap-2.5">
                         {auth?.user ? (
                             <>
-                                {/* Saldo Badge (Matching Reference) */}
-                                <Link
-                                    href="/user/profile"
-                                    className="sketch-btn px-3 py-1.5 bg-white hover:bg-paper-dark text-ink rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 border-2 border-ink shadow-sketch-xs transition-all"
-                                    title="Saldo Akun Saya"
-                                >
-                                    <Wallet className="w-3.5 h-3.5 text-brand" />
-                                    <span>Saldo: {formatRp(auth.user.balance || 0)}</span>
-                                </Link>
-
                                 {/* Admin Button (Only if user is admin) */}
                                 {auth.user.role === 'admin' && (
                                     <Link
@@ -212,10 +197,11 @@ export default function Navbar({
                         {auth?.user && (
                             <Link
                                 href="/user/profile"
-                                className="px-2.5 py-1.5 bg-brand-subtle rounded-xl border-2 border-ink shadow-sketch-xs text-xs font-mono font-bold text-brand-navy flex items-center gap-1"
+                                className="px-3 py-1.5 bg-brand text-white rounded-xl border-2 border-ink shadow-sketch-xs text-xs font-bold flex items-center gap-1"
+                                title="Profil Saya"
                             >
-                                <Wallet className="w-3.5 h-3.5 text-brand" />
-                                <span>{formatRp(auth.user.balance || 0)}</span>
+                                <User className="w-3.5 h-3.5" />
+                                <span className="max-w-[90px] truncate">{auth.user.name}</span>
                             </Link>
                         )}
 

@@ -63,7 +63,7 @@ export default function Register({ auth }) {
                             Daftar Akun Baru & Nikmati Promo Member.
                         </h1>
                         <p className="text-xs sm:text-sm text-ink-muted mt-2.5 leading-relaxed">
-                            Proses pendaftaran cepat, tanpa biaya. Dapatkan riwayat pesanan otomatis dan opsi saldo deposit terintegrasi.
+                            Proses pendaftaran cepat, tanpa biaya. Dapatkan riwayat pesanan otomatis dan kemudahan transaksi terintegrasi.
                         </p>
 
                         {/* Dashed Separator */}

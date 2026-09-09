@@ -37,7 +37,7 @@ export default function Login({ status, canResetPassword, auth }) {
         <MainLayout
             auth={auth}
             title={`Masuk ke Akun — ${siteName}`}
-            description={`Masuk ke akun ${siteName} untuk kelola saldo, pantau transaksi real-time, dan nikmati promo member.`}
+            description={`Masuk ke akun ${siteName} untuk pantau transaksi real-time dan nikmati promo member.`}
             activeTab="profil"
         >
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -57,7 +57,7 @@ export default function Login({ status, canResetPassword, auth }) {
                             Masuk & Nikmati Kemudahan Top-Up Instan.
                         </h1>
                         <p className="text-xs sm:text-sm text-ink-muted mt-2.5 leading-relaxed">
-                            Kelola saldo akun, pantau riwayat transaksi real-time, dan nikmati promo khusus member terdaftar.
+                            Pantau riwayat transaksi real-time dan nikmati promo khusus member terdaftar.
                         </p>
 
                         {/* Dashed Separator */}

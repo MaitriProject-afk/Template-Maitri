@@ -5,12 +5,9 @@ import {
     User, 
     Mail, 
     Phone, 
-    Wallet, 
-    PlusCircle, 
     History, 
     Settings, 
     ShieldCheck, 
-    QrCode, 
     ArrowRight, 
     Check, 
     AlertCircle, 
@@ -29,7 +26,6 @@ export default function Profile({ auth }) {
         email: 'peduliacare@gmail.com',
         phone: null,
         role: 'user',
-        balance: 0,
     };
 
     const isAdmin = user.role === 'admin';
@@ -37,25 +33,10 @@ export default function Profile({ auth }) {
     // Tabs: 'orders', 'settings'
     const [activeTab, setActiveTab] = useState('orders');
 
-    // Deposit Modal state
-    const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
-    const [depositAmount, setDepositAmount] = useState(50000);
-    const [customAmount, setCustomAmount] = useState('');
-    const [isQrisDepositOpen, setIsQrisDepositOpen] = useState(false);
-    const [depositInvoice, setDepositInvoice] = useState('');
-
     // Phone form
     const [phoneInput, setPhoneInput] = useState(user.phone || '');
     const [phoneSaved, setPhoneSaved] = useState(false);
     const [phoneSaving, setPhoneSaving] = useState(false);
-
-    // Format Rupiah
-    const formatRp = (num) => {
-        return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
-    };
-
-    // Preset deposit amounts
-    const PRESET_AMOUNTS = [10000, 25000, 50000, 100000, 250000, 500000];
 
     const handleSavePhone = (e) => {
         e.preventDefault();
@@ -73,17 +54,6 @@ export default function Profile({ auth }) {
         });
     };
 
-    const handleTriggerDeposit = () => {
-        const finalAmount = customAmount ? parseInt(customAmount, 10) : depositAmount;
-        if (!finalAmount || finalAmount < 10000) {
-            alert('Minimal deposit adalah Rp 10.000');
-            return;
-        }
-        setDepositInvoice('DEP-' + new Date().getFullYear() + String(Math.floor(100000 + Math.random() * 900000)));
-        setIsDepositModalOpen(false);
-        setIsQrisDepositOpen(true);
-    };
-
     const handleLogout = () => {
         if (confirm('Apakah Anda yakin ingin keluar dari akun?')) {
             router.post(route('logout'));
@@ -94,7 +64,7 @@ export default function Profile({ auth }) {
         <MainLayout
             auth={auth}
             title={`${user.name} — Profil Pengguna | ${siteName}`}
-            description={`Kelola akun, riwayat transaksi saldo deposit dan pembelian game di ${siteName}.`}
+            description={`Kelola akun dan pantau riwayat pembelian game di ${siteName}.`}
             activeTab="profil"
         >
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
@@ -149,39 +119,18 @@ export default function Profile({ auth }) {
                             </div>
                         </div>
 
-                        {/* Balance Card & Action (Right Box) */}
-                        <div className="flex flex-col sm:flex-row md:flex-col items-stretch sm:items-center md:items-end gap-3 shrink-0">
-                            <div className="p-3.5 sm:p-4 rounded-2xl bg-paper-grid border-2 border-ink shadow-sketch-xs w-full sm:w-auto md:min-w-[200px] flex items-center justify-between sm:justify-start md:justify-between gap-4">
-                                <div>
-                                    <span className="text-[10px] font-mono font-bold text-ink-muted uppercase tracking-wider block">
-                                        SALDO AKUN SAYA
-                                    </span>
-                                    <span className="text-xl sm:text-2xl font-black font-mono text-ink">
-                                        {formatRp(user.balance)}
-                                    </span>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setIsDepositModalOpen(true)}
-                                    className="sketch-btn px-3 py-1.5 bg-brand text-white text-xs font-bold rounded-xl border border-ink shadow-sketch-xs flex items-center gap-1 hover:bg-brand-hover transition-all active:scale-95"
-                                >
-                                    <PlusCircle className="w-3.5 h-3.5" />
-                                    <span>Top Up Saldo</span>
-                                </button>
-                            </div>
-
-                            {/* ADMIN BUTTON (Hanya Muncul Jika Role Admin Sesuai Instruksi User) */}
-                            {isAdmin && (
+                        {/* Admin Action Button (Hanya Muncul Jika Role Admin) */}
+                        {isAdmin && (
+                            <div className="flex items-center shrink-0">
                                 <Link
                                     href="/admin"
-                                    className="sketch-btn px-4 py-2 bg-amber-400 hover:bg-amber-300 text-ink font-black text-xs rounded-xl border-2 border-ink shadow-sketch-xs flex items-center justify-center gap-1.5 transition-all w-full sm:w-auto"
+                                    className="sketch-btn px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-ink font-black text-xs sm:text-sm rounded-2xl border-2 border-ink shadow-sketch-xs flex items-center justify-center gap-2 transition-all w-full sm:w-auto"
                                 >
                                     <span>👑 Masuk Panel Admin</span>
-                                    <ArrowRight className="w-3.5 h-3.5" />
+                                    <ArrowRight className="w-4 h-4" />
                                 </Link>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
                     </div>
                 </div>
@@ -341,126 +290,7 @@ export default function Profile({ auth }) {
 
             </div>
 
-            {/* DEPOSIT MODAL */}
-            {isDepositModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-xs">
-                    <div className="w-full max-w-md bg-white rounded-3xl border-2 border-ink shadow-sketch p-6 relative animate-in fade-in zoom-in-95 duration-150">
-                        <h3 className="text-xl font-black text-ink pb-3 border-b-2 border-ink/10 flex items-center gap-2">
-                            <Wallet className="w-5 h-5 text-brand" />
-                            <span>Isi Saldo Akun (Deposit)</span>
-                        </h3>
-
-                        <div className="mt-4 space-y-4">
-                            <div>
-                                <label className="block text-xs font-mono font-bold text-ink mb-2">
-                                    PILIH NOMINAL INSTAN:
-                                </label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {PRESET_AMOUNTS.map((amt) => (
-                                        <button
-                                            key={amt}
-                                            type="button"
-                                            onClick={() => {
-                                                setDepositAmount(amt);
-                                                setCustomAmount('');
-                                            }}
-                                            className={`p-2.5 rounded-xl border-2 border-ink font-mono font-bold text-xs transition-all ${
-                                                depositAmount === amt && !customAmount
-                                                    ? 'bg-brand text-white shadow-sketch-xs scale-102'
-                                                    : 'bg-paper-dark text-ink hover:bg-brand-subtle'
-                                            }`}
-                                        >
-                                            {formatRp(amt)}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-mono font-bold text-ink mb-1">
-                                    ATAU NOMINAL LAIN:
-                                </label>
-                                <input
-                                    type="number"
-                                    min="10000"
-                                    step="1000"
-                                    value={customAmount}
-                                    onChange={(e) => setCustomAmount(e.target.value)}
-                                    placeholder="Min. 10.000"
-                                    className="w-full px-4 py-2.5 bg-white border-2 border-ink rounded-xl font-mono text-xs font-bold"
-                                />
-                            </div>
-
-                            {/* Payment Method Notice: QRIS */}
-                            <div className="p-3 rounded-xl bg-brand-subtle/50 border border-brand/40 text-xs">
-                                <div className="font-black text-ink flex items-center gap-1.5">
-                                    <QrCode className="w-4 h-4 text-brand" />
-                                    <span>Metode Pembayaran: QRIS Realtime</span>
-                                </div>
-                                <p className="text-[11px] text-ink-muted mt-1 leading-relaxed">
-                                    Saldo otomatis masuk dalam 3–15 detik setelah QRIS berhasil dibayar via E-Wallet atau Mobile Banking.
-                                </p>
-                            </div>
-
-                            <div className="pt-2 flex items-center gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsDepositModalOpen(false)}
-                                    className="sketch-btn flex-1 py-2.5 bg-paper-dark text-ink font-bold text-xs rounded-xl border border-ink"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleTriggerDeposit}
-                                    className="sketch-btn flex-1 py-2.5 bg-brand text-white font-bold text-xs rounded-xl border-2 border-ink shadow-sketch-xs"
-                                >
-                                    Lanjut Bayar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* QRIS DEPOSIT PAYMENT MODAL */}
-            {isQrisDepositOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-xs">
-                    <div className="w-full max-w-sm bg-white rounded-3xl border-2 border-ink shadow-sketch p-6 relative text-center animate-in fade-in zoom-in-95 duration-150">
-                        <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-brand-subtle text-brand-navy border border-ink text-xs font-mono font-bold mb-2">
-                            <span>Scan QRIS untuk Isi Saldo</span>
-                        </div>
-
-                        <h3 className="text-lg font-black text-ink">
-                            {formatRp(customAmount ? parseInt(customAmount, 10) : depositAmount)}
-                        </h3>
-                        <p className="text-[11px] font-mono text-ink-muted mt-0.5">
-                            Invoice: {depositInvoice}
-                        </p>
-
-                        {/* QR Code Demo Visual */}
-                        <div className="w-48 h-48 mx-auto my-4 p-3 bg-white border-2 border-ink rounded-2xl shadow-sketch-xs flex items-center justify-center">
-                            <QrCode className="w-36 h-36 text-ink stroke-[1.8]" />
-                        </div>
-
-                        <p className="text-xs text-ink font-medium">
-                            Buka aplikasi BCA, DANA, GoPay, OVO, atau ShopeePay lalu scan kode QRIS di atas.
-                        </p>
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsQrisDepositOpen(false);
-                                alert('Simulasi: Saldo Anda akan terverifikasi secara otomatis setelah pembayaran.');
-                            }}
-                            className="sketch-btn w-full mt-5 py-2.5 bg-brand text-white font-bold text-xs rounded-xl border-2 border-ink shadow-sketch-xs"
-                        >
-                            Saya Sudah Bayar
-                        </button>
-                    </div>
-                </div>
-            )}
-
         </MainLayout>
     );
 }
+
