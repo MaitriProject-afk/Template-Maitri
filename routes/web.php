@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\H2hProductController;
 use App\Http\Controllers\Admin\ProductManageController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\TransactionController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicCatalogController;
@@ -78,6 +79,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/transactions', [TransactionController::class, 'index'])->name('admin.transactions.index');
     Route::post('/transactions/{transaction}/sync-status', [TransactionController::class, 'syncStatus'])->name('admin.transactions.sync-status');
     Route::post('/transactions/{transaction}/mark-refunded', [TransactionController::class, 'markRefunded'])->name('admin.transactions.mark-refunded');
+
+    // Kelola Pengguna (User Management & Role Promotion)
+    Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
+    Route::post('/users/{user}/role', [UserController::class, 'updateRole'])->name('admin.users.update-role');
 
     Route::get('/settings', [SettingController::class, 'index'])->name('admin.settings');
     Route::post('/settings', [SettingController::class, 'update'])->name('admin.settings.update');

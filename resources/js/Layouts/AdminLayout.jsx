@@ -71,6 +71,12 @@ export default function AdminLayout({
             href: '/admin/transactions',
         },
         {
+            id: 'users',
+            name: 'Kelola Pengguna',
+            icon: Users,
+            href: '/admin/users',
+        },
+        {
             id: 'settings',
             name: 'Pengaturan & API',
             icon: Settings,
