@@ -26,11 +26,12 @@ import {
     Globe,
     RefreshCw,
     Terminal,
-    CheckCircle
+    CheckCircle,
+    Send
 } from 'lucide-react';
 
 export default function AdminSettings({ auth, settings, presets, callbackUrl }) {
-    const [activeTab, setActiveTab] = useState('theme'); // 'theme' | 'identity' | 'h2h'
+    const [activeTab, setActiveTab] = useState('theme'); // 'theme' | 'identity' | 'h2h' | 'mail'
     const [statusMessage, setStatusMessage] = useState(null);
 
     // H2H visibility & test states
@@ -41,6 +42,12 @@ export default function AdminSettings({ auth, settings, presets, callbackUrl }) 
     const [copiedSecret, setCopiedSecret] = useState(false);
     const [testingConnection, setTestingConnection] = useState(false);
     const [testResult, setTestResult] = useState(null);
+
+    // Mailer visibility & test states
+    const [showMailPassword, setShowMailPassword] = useState(false);
+    const [testEmail, setTestEmail] = useState(auth?.user?.email || 'admin@example.com');
+    const [sendingTestMail, setSendingTestMail] = useState(false);
+    const [mailTestResult, setMailTestResult] = useState(null);
 
     // Inertia form
     const { data, setData, post, processing, errors, recentlySuccessful } = useForm({
@@ -61,6 +68,14 @@ export default function AdminSettings({ auth, settings, presets, callbackUrl }) 
         h2h_api_url: settings?.h2h_api_url || 'https://maitriproject.my.id/api/v1/h2h',
         h2h_api_key: settings?.h2h_api_key || '',
         h2h_api_secret: settings?.h2h_api_secret || '',
+        mail_mailer: settings?.mail_mailer || 'smtp',
+        mail_host: settings?.mail_host || '127.0.0.1',
+        mail_port: settings?.mail_port || 2525,
+        mail_username: settings?.mail_username || '',
+        mail_password: settings?.mail_password || '',
+        mail_scheme: settings?.mail_scheme || '',
+        mail_from_address: settings?.mail_from_address || 'hello@example.com',
+        mail_from_name: settings?.mail_from_name || 'Maitri Project',
     });
 
     const handleTestH2h = async () => {
@@ -85,6 +100,38 @@ export default function AdminSettings({ auth, settings, presets, callbackUrl }) 
             });
         } finally {
             setTestingConnection(false);
+        }
+    };
+
+    const handleTestMail = async () => {
+        if (!testEmail || !testEmail.trim()) {
+            alert('Silakan masukkan alamat email tujuan pengujian terlebih dahulu.');
+            return;
+        }
+
+        setSendingTestMail(true);
+        setMailTestResult(null);
+
+        try {
+            const res = await axios.post(route('admin.settings.test-mail'), {
+                test_email: testEmail,
+                mail_mailer: data.mail_mailer,
+                mail_host: data.mail_host,
+                mail_port: data.mail_port,
+                mail_username: data.mail_username,
+                mail_password: data.mail_password,
+                mail_scheme: data.mail_scheme,
+                mail_from_address: data.mail_from_address,
+                mail_from_name: data.mail_from_name,
+            });
+            setMailTestResult(res.data);
+        } catch (err) {
+            setMailTestResult({
+                success: false,
+                message: err.response?.data?.message || 'Gagal mengirim email uji coba. Pastikan host, port, dan kredensial sudah sesuai.',
+            });
+        } finally {
+            setSendingTestMail(false);
         }
     };
 
@@ -215,6 +262,21 @@ export default function AdminSettings({ auth, settings, presets, callbackUrl }) 
                         <span>Koneksi API H2H Maitri</span>
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-sketch-yellow text-ink border border-ink hidden lg:inline-block">
                             RESELLER
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('mail')}
+                        className={`flex-1 min-w-[170px] py-2.5 px-4 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 border-2 ${
+                            activeTab === 'mail'
+                                ? 'bg-brand text-white border-ink shadow-sketch-xs'
+                                : 'bg-transparent text-ink border-transparent hover:bg-white/60'
+                        }`}
+                    >
+                        <Mail className="w-4 h-4" />
+                        <span>SMTP & Mailer</span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-sketch-yellow text-ink border border-ink hidden lg:inline-block">
+                            EMAIL
                         </span>
                     </button>
                 </div>
@@ -944,6 +1006,314 @@ export default function AdminSettings({ auth, settings, presets, callbackUrl }) 
                                         <p className="text-ink-muted mt-0.5">Diamond/produk sukses masuk (SN) atau refund bila gagal.</p>
                                     </div>
                                 </div>
+                            </div>
+
+                        </div>
+                    )}
+
+                    {/* =========================================
+                        TAB 4: SMTP & MAILER SERVER CONFIGURATION
+                    ========================================= */}
+                    {activeTab === 'mail' && (
+                        <div className="space-y-6 animate-in fade-in duration-200">
+                            
+                            {/* Card 1: SMTP Credentials & Server Settings */}
+                            <div className="sketch-card bg-white p-5 sm:p-6 rounded-3xl border-2 border-ink shadow-sketch space-y-6">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-brand-subtle text-brand-navy border border-ink shadow-sketch-xs">
+                                            ✉️ PENGATURAN SERVER EMAIL (SMTP)
+                                        </span>
+                                    </div>
+                                    <h3 className="text-lg font-black text-ink">
+                                        Konfigurasi Mailer & Kredensial SMTP
+                                    </h3>
+                                    <p className="text-xs text-ink-muted mt-1">
+                                        Atur koneksi mailer website Anda di sini tanpa perlu mengedit file .env secara manual. Pengaturan ini digunakan oleh sistem saat mengirim email notifikasi transaksi, OTP, atau informasi penting kepada pembeli.
+                                    </p>
+                                </div>
+
+                                {/* Driver Selection */}
+                                <div className="p-4 rounded-2xl bg-paper-dark border-2 border-ink shadow-sketch-xs space-y-3">
+                                    <label className="block text-xs font-black text-ink uppercase tracking-wider">
+                                        Driver / Protocol Mailer (MAIL_MAILER)
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        {[
+                                            { id: 'smtp', label: 'SMTP Server', desc: 'Direkomendasikan (Gmail, Mailtrap, Hostinger, cPanel, dll)', badge: 'REKOMENDASI' },
+                                            { id: 'log', label: 'Local Log', desc: 'Uji coba lokal: email dicatat ke file storage/logs/laravel.log', badge: 'DEV' },
+                                            { id: 'sendmail', label: 'Sendmail', desc: 'Mengirim langsung via utilitas sendmail server Linux/VPS', badge: 'LEGACY' },
+                                        ].map((driver) => (
+                                            <button
+                                                key={driver.id}
+                                                type="button"
+                                                onClick={() => setData('mail_mailer', driver.id)}
+                                                className={`p-3.5 rounded-xl border-2 text-left transition-all ${
+                                                    data.mail_mailer === driver.id
+                                                        ? 'bg-white border-brand shadow-sketch-xs ring-2 ring-brand/20'
+                                                        : 'bg-white/60 border-ink/30 hover:border-ink hover:bg-white'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="font-black text-xs text-ink">{driver.label}</span>
+                                                    <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border font-bold ${
+                                                        data.mail_mailer === driver.id
+                                                            ? 'bg-brand text-white border-ink'
+                                                            : 'bg-paper text-ink-muted border-ink/20'
+                                                    }`}>
+                                                        {driver.badge}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[11px] text-ink-muted leading-snug">
+                                                    {driver.desc}
+                                                </p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {errors.mail_mailer && <p className="text-xs text-rose-600 font-bold">{errors.mail_mailer}</p>}
+                                </div>
+
+                                {/* SMTP Connection Fields */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {/* Mail Host */}
+                                    <div>
+                                        <label className="block text-xs font-black text-ink mb-1.5 uppercase tracking-wider">
+                                            SMTP Host (Server)
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={data.mail_host}
+                                                onChange={(e) => setData('mail_host', e.target.value)}
+                                                placeholder="Contoh: smtp.gmail.com atau mail.domain.com"
+                                                className="sketch-input w-full px-3.5 py-2.5 rounded-xl border-2 border-ink text-xs font-mono bg-white text-ink placeholder:text-ink-muted/50"
+                                            />
+                                        </div>
+                                        <span className="text-[10px] text-ink-muted mt-1 block">
+                                            Alamat server host SMTP penyedia layanan email Anda.
+                                        </span>
+                                        {errors.mail_host && <p className="text-xs text-rose-600 font-bold mt-1">{errors.mail_host}</p>}
+                                    </div>
+
+                                    {/* Mail Port & Encryption Scheme */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-xs font-black text-ink mb-1.5 uppercase tracking-wider">
+                                                Port SMTP
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={data.mail_port}
+                                                onChange={(e) => setData('mail_port', e.target.value)}
+                                                placeholder="587 / 465 / 2525"
+                                                className="sketch-input w-full px-3.5 py-2.5 rounded-xl border-2 border-ink text-xs font-mono bg-white text-ink placeholder:text-ink-muted/50"
+                                            />
+                                            {errors.mail_port && <p className="text-xs text-rose-600 font-bold mt-1">{errors.mail_port}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-black text-ink mb-1.5 uppercase tracking-wider">
+                                                Enkripsi / Scheme
+                                            </label>
+                                            <select
+                                                value={data.mail_scheme || ''}
+                                                onChange={(e) => setData('mail_scheme', e.target.value)}
+                                                className="sketch-input w-full px-3 py-2.5 rounded-xl border-2 border-ink text-xs font-bold bg-white text-ink"
+                                            >
+                                                <option value="">Bawaan (STARTTLS)</option>
+                                                <option value="tls">TLS (Port 587)</option>
+                                                <option value="ssl">SSL / SMTPS (Port 465)</option>
+                                                <option value="none">Tanpa Enkripsi</option>
+                                            </select>
+                                            {errors.mail_scheme && <p className="text-xs text-rose-600 font-bold mt-1">{errors.mail_scheme}</p>}
+                                        </div>
+                                    </div>
+
+                                    {/* Mail Username */}
+                                    <div>
+                                        <label className="block text-xs font-black text-ink mb-1.5 uppercase tracking-wider">
+                                            Username SMTP
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={data.mail_username}
+                                            onChange={(e) => setData('mail_username', e.target.value)}
+                                            placeholder="Contoh: namaanda@gmail.com atau user_smtp"
+                                            className="sketch-input w-full px-3.5 py-2.5 rounded-xl border-2 border-ink text-xs font-mono bg-white text-ink placeholder:text-ink-muted/50"
+                                        />
+                                        <span className="text-[10px] text-ink-muted mt-1 block">
+                                            Email akun pengirim atau API username dari provider.
+                                        </span>
+                                        {errors.mail_username && <p className="text-xs text-rose-600 font-bold mt-1">{errors.mail_username}</p>}
+                                    </div>
+
+                                    {/* Mail Password */}
+                                    <div>
+                                        <label className="block text-xs font-black text-ink mb-1.5 uppercase tracking-wider">
+                                            Password / App Password SMTP
+                                        </label>
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type={showMailPassword ? 'text' : 'password'}
+                                                value={data.mail_password}
+                                                onChange={(e) => setData('mail_password', e.target.value)}
+                                                placeholder="••••••••••••••••"
+                                                className="sketch-input w-full px-3.5 py-2.5 pr-10 rounded-xl border-2 border-ink text-xs font-mono bg-white text-ink placeholder:text-ink-muted/50"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowMailPassword(!showMailPassword)}
+                                                className="absolute right-3 text-ink-muted hover:text-ink transition-colors"
+                                                tabIndex="-1"
+                                                title={showMailPassword ? 'Sembunyikan' : 'Lihat'}
+                                            >
+                                                {showMailPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                        <span className="text-[10px] text-ink-muted mt-1 block">
+                                            Untuk akun Gmail, gunakan <strong>Sandi Aplikasi (App Password)</strong> 16 digit.
+                                        </span>
+                                        {errors.mail_password && <p className="text-xs text-rose-600 font-bold mt-1">{errors.mail_password}</p>}
+                                    </div>
+
+                                    {/* Sender Address (MAIL_FROM_ADDRESS) */}
+                                    <div>
+                                        <label className="block text-xs font-black text-ink mb-1.5 uppercase tracking-wider">
+                                            Alamat Email Pengirim (From Address)
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={data.mail_from_address}
+                                            onChange={(e) => setData('mail_from_address', e.target.value)}
+                                            placeholder="Contoh: noreply@tokoanda.com atau gmail anda"
+                                            className="sketch-input w-full px-3.5 py-2.5 rounded-xl border-2 border-ink text-xs font-mono bg-white text-ink placeholder:text-ink-muted/50"
+                                        />
+                                        <span className="text-[10px] text-ink-muted mt-1 block">
+                                            Alamat email yang akan muncul sebagai pengirim di kotak masuk pelanggan.
+                                        </span>
+                                        {errors.mail_from_address && <p className="text-xs text-rose-600 font-bold mt-1">{errors.mail_from_address}</p>}
+                                    </div>
+
+                                    {/* Sender Name (MAIL_FROM_NAME) */}
+                                    <div>
+                                        <label className="block text-xs font-black text-ink mb-1.5 uppercase tracking-wider">
+                                            Nama Pengirim (From Name)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={data.mail_from_name}
+                                            onChange={(e) => setData('mail_from_name', e.target.value)}
+                                            placeholder="Contoh: Maitri Store Notifikasi"
+                                            className="sketch-input w-full px-3.5 py-2.5 rounded-xl border-2 border-ink text-xs font-bold bg-white text-ink placeholder:text-ink-muted/50"
+                                        />
+                                        <span className="text-[10px] text-ink-muted mt-1 block">
+                                            Nama brand pengirim yang tampil di email penerima.
+                                        </span>
+                                        {errors.mail_from_name && <p className="text-xs text-rose-600 font-bold mt-1">{errors.mail_from_name}</p>}
+                                    </div>
+                                </div>
+
+                                {/* Guidance Box */}
+                                <div className="p-4 rounded-2xl bg-brand-subtle border-2 border-ink shadow-sketch-xs text-xs space-y-2">
+                                    <div className="flex items-center gap-2 font-black text-brand-navy">
+                                        <AlertCircle className="w-4 h-4 text-brand shrink-0" />
+                                        <span>Panduan Cepat Konfigurasi SMTP Populer:</span>
+                                    </div>
+                                    <ul className="list-disc pl-5 space-y-1 text-ink-muted text-[11px] leading-relaxed">
+                                        <li>
+                                            <strong className="text-ink">Gmail / Google Workspace:</strong> Host: <code className="bg-white px-1 py-0.5 rounded border border-ink/20 font-mono">smtp.gmail.com</code> | Port: <code className="bg-white px-1 py-0.5 rounded border border-ink/20 font-mono">587</code> (TLS) atau <code className="bg-white px-1 py-0.5 rounded border border-ink/20 font-mono">465</code> (SSL) | Aktifkan 2FA di Google dan buat <em>Sandi Aplikasi (App Password)</em>.
+                                        </li>
+                                        <li>
+                                            <strong className="text-ink">Mailtrap (Sandbox Test):</strong> Host: <code className="bg-white px-1 py-0.5 rounded border border-ink/20 font-mono">sandbox.smtp.mailtrap.io</code> | Port: <code className="bg-white px-1 py-0.5 rounded border border-ink/20 font-mono">2525</code> | Username & Password dari inbox Mailtrap Anda.
+                                        </li>
+                                        <li>
+                                            <strong className="text-ink">Webmail cPanel / VPS:</strong> Host: <code className="bg-white px-1 py-0.5 rounded border border-ink/20 font-mono">mail.namadomainanda.com</code> | Port: <code className="bg-white px-1 py-0.5 rounded border border-ink/20 font-mono">465</code> (SSL) | Gunakan email dan password akun cPanel Anda.
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Card 2: Test Mailer Connection */}
+                            <div className="sketch-card bg-paper-dark p-5 sm:p-6 rounded-3xl border-2 border-ink shadow-sketch space-y-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-sketch-sky text-ink border border-ink shadow-sketch-xs">
+                                            🧪 TEST MAILER ENGINE
+                                        </span>
+                                    </div>
+                                    <h4 className="text-base font-black text-ink">
+                                        Uji Coba Pengiriman Email (Test Mailer)
+                                    </h4>
+                                    <p className="text-xs text-ink-muted leading-relaxed">
+                                        Ketikkan alamat email target di bawah ini untuk menguji secara instan apakah kredensial SMTP yang Anda masukkan di atas berfungsi dengan sempurna.
+                                    </p>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-white border-2 border-ink shadow-sketch-xs space-y-3">
+                                    <label className="block text-xs font-black text-ink uppercase tracking-wider">
+                                        Alamat Email Tujuan Pengujian (Recipient Target)
+                                    </label>
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                                        <div className="relative flex-1">
+                                            <input
+                                                type="email"
+                                                value={testEmail}
+                                                onChange={(e) => setTestEmail(e.target.value)}
+                                                placeholder="masukkanemailanda@gmail.com"
+                                                className="sketch-input w-full px-3.5 py-2.5 rounded-xl border-2 border-ink text-xs font-mono font-bold bg-paper text-ink placeholder:text-ink-muted/50"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            disabled={sendingTestMail}
+                                            onClick={handleTestMail}
+                                            className="sketch-btn px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl border-2 border-ink shadow-sketch-xs flex items-center justify-center gap-2 shrink-0 active:scale-95 transition-all disabled:opacity-50"
+                                        >
+                                            {sendingTestMail ? (
+                                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Send className="w-4 h-4" />
+                                            )}
+                                            <span>{sendingTestMail ? 'Mengirim Email Uji Coba...' : 'Kirim Email Uji Coba'}</span>
+                                        </button>
+                                    </div>
+                                    <p className="text-[11px] text-ink-muted">
+                                        Email uji coba akan dikirimkan dengan konfigurasi SMTP di atas dan memuat informasi status koneksi serta cap waktu.
+                                    </p>
+                                </div>
+
+                                {/* Test Result Display */}
+                                {mailTestResult && (
+                                    <div className={`p-4 rounded-2xl border-2 border-ink shadow-sketch-xs animate-in fade-in duration-200 ${
+                                        mailTestResult.success ? 'bg-emerald-50 border-emerald-900' : 'bg-rose-50 border-rose-900'
+                                    }`}>
+                                        <div className="flex items-start gap-2.5">
+                                            {mailTestResult.success ? (
+                                                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                                            ) : (
+                                                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                                            )}
+                                            <div className="space-y-1 text-xs">
+                                                <p className={`font-black ${mailTestResult.success ? 'text-emerald-900' : 'text-rose-900'}`}>
+                                                    {mailTestResult.message}
+                                                </p>
+                                                {mailTestResult.success ? (
+                                                    <p className="text-emerald-800 text-[11px] leading-relaxed">
+                                                        Koneksi SMTP sukses! Silakan periksa kotak masuk (atau folder Spam) dari email target Anda untuk memastikan pesan diterima.
+                                                    </p>
+                                                ) : (
+                                                    <div className="text-[11px] text-rose-800 space-y-1 pt-1">
+                                                        <p className="font-bold">Tips Mengatasi Masalah:</p>
+                                                        <ul className="list-disc pl-4 space-y-0.5">
+                                                            <li>Periksa kembali Host, Port (587/465), dan tipe enkripsi.</li>
+                                                            <li>Jika menggunakan Gmail, pastikan memakai <strong>Sandi Aplikasi (App Password)</strong>, bukan kata sandi akun Google utama.</li>
+                                                            <li>Pastikan firewall VPS / hosting Anda mengizinkan koneksi keluar (outbound) pada port SMTP.</li>
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                         </div>

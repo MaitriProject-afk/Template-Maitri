@@ -27,6 +27,14 @@ class SiteSetting extends Model
         'h2h_api_key',
         'h2h_api_secret',
         'cron_sync_token',
+        'mail_mailer',
+        'mail_host',
+        'mail_port',
+        'mail_username',
+        'mail_password',
+        'mail_scheme',
+        'mail_from_address',
+        'mail_from_name',
     ];
 
     public const DEFAULT_SETTINGS = [
@@ -48,6 +56,14 @@ class SiteSetting extends Model
         'h2h_api_key' => null,
         'h2h_api_secret' => null,
         'cron_sync_token' => 'maitri_sync_cron_key_sec99',
+        'mail_mailer' => 'log',
+        'mail_host' => '127.0.0.1',
+        'mail_port' => 2525,
+        'mail_username' => null,
+        'mail_password' => null,
+        'mail_scheme' => null,
+        'mail_from_address' => 'hello@example.com',
+        'mail_from_name' => 'Maitri Project',
     ];
 
     public const PRESETS = [
@@ -140,5 +156,36 @@ class SiteSetting extends Model
     public static function resetToDefault(): static
     {
         return static::setSettings(static::DEFAULT_SETTINGS);
+    }
+
+    /**
+     * Apply runtime mail configuration from database settings.
+     */
+    public static function applyMailConfig(): void
+    {
+        try {
+            $settings = static::getSettings();
+            $defaultMailer = $settings['mail_mailer'] ?? config('mail.default', 'log');
+
+            $rawScheme = $settings['mail_scheme'] ?? null;
+            $scheme = match ($rawScheme) {
+                'ssl', 'smtps' => 'smtps',
+                'none' => null,
+                default => null,
+            };
+
+            config([
+                'mail.default' => $defaultMailer,
+                'mail.mailers.smtp.host' => $settings['mail_host'] ?? config('mail.mailers.smtp.host', '127.0.0.1'),
+                'mail.mailers.smtp.port' => (int) ($settings['mail_port'] ?? config('mail.mailers.smtp.port', 2525)),
+                'mail.mailers.smtp.scheme' => $scheme,
+                'mail.mailers.smtp.username' => $settings['mail_username'] ?? config('mail.mailers.smtp.username'),
+                'mail.mailers.smtp.password' => $settings['mail_password'] ?? config('mail.mailers.smtp.password'),
+                'mail.from.address' => $settings['mail_from_address'] ?? config('mail.from.address', 'hello@example.com'),
+                'mail.from.name' => $settings['mail_from_name'] ?? config('mail.from.name', 'Maitri Project'),
+            ]);
+        } catch (\Throwable) {
+            // Ignore if database or cache is not yet initialized
+        }
     }
 }

@@ -88,6 +88,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/settings', [SettingController::class, 'update'])->name('admin.settings.update');
     Route::post('/settings/reset', [SettingController::class, 'reset'])->name('admin.settings.reset');
     Route::post('/settings/test-h2h', [SettingController::class, 'testH2h'])->name('admin.settings.test-h2h');
+    Route::post('/settings/test-mail', [SettingController::class, 'testMail'])->name('admin.settings.test-mail');
 
     // Category & Subcategory Management
     Route::get('/categories', [CategoryController::class, 'index'])->name('admin.categories.index');

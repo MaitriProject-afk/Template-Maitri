@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Mail\TestMailNotification;
 use App\Models\SiteSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class AdminSettingTest extends TestCase
@@ -131,5 +133,97 @@ class AdminSettingTest extends TestCase
                 'balance' => 750000,
             ],
         ]);
+    }
+
+    public function test_admin_can_update_mail_settings(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->post('/admin/settings', [
+            'site_name' => 'Maitri Project',
+            'brand_logo_text_prefix' => 'MAITRI',
+            'brand_logo_text_suffix' => 'PROJECT',
+            'color_primary' => '#2563eb',
+            'color_primary_hover' => '#1d4ed8',
+            'color_accent' => '#60a5fa',
+            'color_subtle' => '#dbeafe',
+            'color_navy' => '#1e3a8a',
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.mailtrap.io',
+            'mail_port' => 2525,
+            'mail_username' => 'testuser123',
+            'mail_password' => 'secretpass456',
+            'mail_scheme' => 'tls',
+            'mail_from_address' => 'noreply@mycustomstore.com',
+            'mail_from_name' => 'Custom Store Notification',
+        ]);
+
+        $response->assertRedirect();
+        $settings = SiteSetting::getSettings();
+        $this->assertEquals('smtp', $settings['mail_mailer']);
+        $this->assertEquals('smtp.mailtrap.io', $settings['mail_host']);
+        $this->assertEquals(2525, $settings['mail_port']);
+        $this->assertEquals('testuser123', $settings['mail_username']);
+        $this->assertEquals('secretpass456', $settings['mail_password']);
+        $this->assertEquals('tls', $settings['mail_scheme']);
+        $this->assertEquals('noreply@mycustomstore.com', $settings['mail_from_address']);
+        $this->assertEquals('Custom Store Notification', $settings['mail_from_name']);
+
+        // Check that config was dynamically applied
+        $this->assertEquals('smtp', config('mail.default'));
+        $this->assertEquals('smtp.mailtrap.io', config('mail.mailers.smtp.host'));
+        $this->assertEquals(2525, config('mail.mailers.smtp.port'));
+        $this->assertEquals('noreply@mycustomstore.com', config('mail.from.address'));
+    }
+
+    public function test_admin_can_send_test_email(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->postJson('/admin/settings/test-mail', [
+            'test_email' => 'target@example.com',
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.mailtrap.io',
+            'mail_port' => 2525,
+            'mail_username' => 'testuser',
+            'mail_password' => 'testpass',
+            'mail_scheme' => 'tls',
+            'mail_from_address' => 'system@store.com',
+            'mail_from_name' => 'Store Mailer',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+
+        Mail::assertSent(TestMailNotification::class, function ($mail) {
+            return $mail->hasTo('target@example.com');
+        });
+    }
+
+    public function test_test_mail_requires_valid_email(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->postJson('/admin/settings/test-mail', [
+            'test_email' => 'not-an-email',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['test_email']);
+    }
+
+    public function test_regular_user_cannot_send_test_mail(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+
+        $response = $this->actingAs($user)->postJson('/admin/settings/test-mail', [
+            'test_email' => 'target@example.com',
+        ]);
+
+        $response->assertStatus(403);
     }
 }

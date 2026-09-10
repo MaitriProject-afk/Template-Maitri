@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TestMailNotification;
 use App\Models\SiteSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,7 +28,7 @@ class SettingController extends Controller
     }
 
     /**
-     * Update the site settings and color theme.
+     * Update the site settings, theme, and mailer.
      */
     public function update(Request $request): RedirectResponse
     {
@@ -48,11 +50,20 @@ class SettingController extends Controller
             'h2h_api_url' => 'nullable|url|max:255',
             'h2h_api_key' => 'nullable|string|max:255',
             'h2h_api_secret' => 'nullable|string|max:255',
+            'mail_mailer' => 'nullable|string|in:smtp,log,sendmail',
+            'mail_host' => 'nullable|string|max:255',
+            'mail_port' => 'nullable|numeric|between:1,65535',
+            'mail_username' => 'nullable|string|max:255',
+            'mail_password' => 'nullable|string|max:255',
+            'mail_scheme' => 'nullable|string|in:tls,ssl,none,smtps',
+            'mail_from_address' => 'nullable|email|max:255',
+            'mail_from_name' => 'nullable|string|max:255',
         ]);
 
         SiteSetting::setSettings($validated);
+        SiteSetting::applyMailConfig();
 
-        return back()->with('success', 'Pengaturan website dan kredensial API H2H berhasil disimpan.');
+        return back()->with('success', 'Pengaturan website, API H2H, dan Mailer berhasil disimpan.');
     }
 
     /**
@@ -61,6 +72,7 @@ class SettingController extends Controller
     public function reset(): RedirectResponse
     {
         SiteSetting::resetToDefault();
+        SiteSetting::applyMailConfig();
 
         return back()->with('success', 'Pengaturan website berhasil dikembalikan ke bawaan template.');
     }
@@ -122,6 +134,79 @@ class SettingController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal Menghubungi Server: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Send a test email to verify Mailer / SMTP configuration.
+     */
+    public function testMail(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'test_email' => 'required|email|max:255',
+            'mail_mailer' => 'nullable|string|in:smtp,log,sendmail',
+            'mail_host' => 'nullable|string|max:255',
+            'mail_port' => 'nullable|numeric|between:1,65535',
+            'mail_username' => 'nullable|string|max:255',
+            'mail_password' => 'nullable|string|max:255',
+            'mail_scheme' => 'nullable|string|in:tls,ssl,none,smtps',
+            'mail_from_address' => 'nullable|email|max:255',
+            'mail_from_name' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            $settings = SiteSetting::getSettings();
+            $mailer = $validated['mail_mailer'] ?? $settings['mail_mailer'] ?? 'smtp';
+            $host = $validated['mail_host'] ?? $settings['mail_host'] ?? '127.0.0.1';
+            $port = (int) ($validated['mail_port'] ?? $settings['mail_port'] ?? 2525);
+            $rawScheme = $validated['mail_scheme'] ?? $settings['mail_scheme'] ?? null;
+            $scheme = match ($rawScheme) {
+                'ssl', 'smtps' => 'smtps',
+                'none' => null,
+                default => null,
+            };
+            $username = $validated['mail_username'] ?? $settings['mail_username'] ?? null;
+            $password = $validated['mail_password'] ?? $settings['mail_password'] ?? null;
+            $fromAddress = $validated['mail_from_address'] ?? $settings['mail_from_address'] ?? config('mail.from.address', 'hello@example.com');
+            $fromName = $validated['mail_from_name'] ?? $settings['mail_from_name'] ?? config('mail.from.name', 'Maitri Project');
+
+            config([
+                'mail.default' => $mailer,
+                'mail.mailers.smtp.host' => $host,
+                'mail.mailers.smtp.port' => $port,
+                'mail.mailers.smtp.scheme' => $scheme,
+                'mail.mailers.smtp.username' => $username,
+                'mail.mailers.smtp.password' => $password,
+                'mail.from.address' => $fromAddress,
+                'mail.from.name' => $fromName,
+            ]);
+
+            Mail::purge($mailer);
+
+            Mail::to($validated['test_email'])->send(new TestMailNotification(
+                recipientEmail: $validated['test_email'],
+                mailerConfig: [
+                    'mailer' => $mailer,
+                    'host' => $host,
+                    'port' => $port,
+                    'scheme' => $rawScheme ?: 'Default / STARTTLS',
+                    'from' => $fromAddress,
+                ]
+            ));
+
+            $notice = $mailer === 'log'
+                ? ' (Driver "log" aktif: email dicatat ke file storage/logs/laravel.log)'
+                : '';
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email uji coba berhasil dikirim ke '.$validated['test_email'].'!'.$notice,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim email: '.$e->getMessage(),
             ], 500);
         }
     }
