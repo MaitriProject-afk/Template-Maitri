@@ -243,14 +243,11 @@ class ProductSyncService
                         $productItem->stock = $raw['stock'];
                         $productItem->multi = $raw['multi'];
 
-                        // If profit is defined, recalculate selling price
-                        if ($productItem->profit_value > 0) {
-                            $productItem->price = $productItem->computePrice(
-                                $newH2hPrice,
-                                $productItem->profit_type ?? 'fixed',
-                                $productItem->profit_value
-                            );
-                        }
+                        // Selalu sinkronkan keuntungan dengan margin maitri yang ditetapkan (retail_price - h2h_price)
+                        $maitriMargin = max(0, (int) $raw['retail_price'] - (int) $newH2hPrice);
+                        $productItem->profit_type = 'fixed';
+                        $productItem->profit_value = $maitriMargin;
+                        $productItem->price = (int) $raw['retail_price'];
 
                         $productItem->save();
                     }

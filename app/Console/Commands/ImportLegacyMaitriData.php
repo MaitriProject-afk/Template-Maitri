@@ -37,13 +37,7 @@ class ImportLegacyMaitriData extends Command
         $h2hProducts = collect(DB::select("SELECT * FROM {$currentDb}.h2h_products"))
             ->keyBy('buyer_sku_code');
 
-        // Pre-cache digiflazz products dari database legacy
-        $legacyDigiflazz = collect();
-        $hasDigiTable = DB::select("SHOW TABLES FROM {$sourceDb} LIKE 'digiflazz_products'");
-        if (! empty($hasDigiTable)) {
-            $legacyDigiflazz = collect(DB::select("SELECT * FROM {$sourceDb}.digiflazz_products"))
-                ->keyBy('buyer_sku_code');
-        }
+        $this->info("Total data SKU di tabel h2h_products saat ini: {$h2hProducts->count()} SKU.");
 
         // 2. Kosongkan tabel tujuan agar integritas ID 100% presisi
         $this->info('Mengosongkan data lama di tabel categories, sub_categories, products, product_items...');
@@ -92,7 +86,56 @@ class ImportLegacyMaitriData extends Command
         DB::table('sub_categories')->insert($subCategoriesData);
         $this->line('  ✓ '.count($subCategoriesData).' Sub Kategori berhasil diimpor.');
 
-        // 5. Impor Produk
+        // 5. Filter dan Siapkan Item Produk yang VALID di H2H Maitri
+        $this->info('Memfilter Item Produk yang memiliki SKU aktif di hasil sinkronisasi H2H Maitri...');
+        $legacyItems = DB::select("SELECT * FROM {$sourceDb}.product_items ORDER BY selling_price ASC");
+        $itemsData = [];
+        $validProductIds = [];
+        $skippedCount = 0;
+
+        foreach ($legacyItems as $item) {
+            $sku = $item->digiflazz_sku;
+            $h2hMatch = $sku ? $h2hProducts->get($sku) : null;
+
+            // ATURAN: Jika SKU tidak ada di data sinkronisasi H2H, JANGAN DIINPUT!
+            if (! $h2hMatch) {
+                $skippedCount++;
+
+                continue;
+            }
+
+            $h2hPrice = (int) $h2hMatch->h2h_price;
+            $retailPrice = (int) $h2hMatch->retail_price;
+            // Keuntungan diset sama seperti margin Maitri yang sudah ditetapkan (retail_price - h2h_price)
+            $maitriMargin = max(0, $retailPrice - $h2hPrice);
+
+            $validProductIds[$item->product_id] = true;
+
+            $itemsData[] = [
+                'id' => $item->id,
+                'product_id' => $item->product_id,
+                'buyer_sku_code' => $sku,
+                'name' => $item->name,
+                'category_group' => $item->category ?: 'Umum',
+                'h2h_price' => $h2hPrice,
+                'price' => $retailPrice > 0 ? $retailPrice : ($h2hPrice + $maitriMargin),
+                'profit_type' => 'fixed',
+                'profit_value' => $maitriMargin,
+                'status' => $h2hMatch->status ?: 'AVAILABLE',
+                'start_cut_off' => $h2hMatch->start_cut_off ?? null,
+                'end_cut_off' => $h2hMatch->end_cut_off ?? null,
+                'desc' => $h2hMatch->desc ?? null,
+                'unlimited_stock' => (int) ($h2hMatch->unlimited_stock ?? 1),
+                'stock' => (int) ($h2hMatch->stock ?? 0),
+                'multi' => (int) ($h2hMatch->multi ?? 0),
+                'sort_order' => $item->sort_order ?? 0,
+                'is_active' => (int) ($h2hMatch->is_active && $item->is_active),
+                'created_at' => $item->created_at ?? $now,
+                'updated_at' => $item->updated_at ?? $now,
+            ];
+        }
+
+        // 6. Impor Produk
         $this->info('Mengimpor Produk...');
         $legacyProducts = DB::select("SELECT * FROM {$sourceDb}.products ORDER BY name ASC");
         $productsData = [];
@@ -112,6 +155,10 @@ class ImportLegacyMaitriData extends Command
             $inputLabel = $isGame ? 'User ID' : 'target tujuan';
             $inputPlaceholder = $isGame ? 'Masukkan User ID' : 'Target';
 
+            // Produk hanya aktif jika memiliki setidaknya 1 item yang valid di H2H
+            $hasH2hItems = isset($validProductIds[$p->id]);
+            $isActive = $hasH2hItems && (bool) ($p->is_active ?? 1);
+
             $productsData[] = [
                 'id' => $p->id,
                 'category_id' => $p->category_id,
@@ -129,7 +176,7 @@ class ImportLegacyMaitriData extends Command
                 'zone_placeholder' => null,
                 'server_options' => null,
                 'sort_order' => $p->sort_order ?? 0,
-                'is_active' => (int) ($p->is_active ?? 1),
+                'is_active' => $isActive ? 1 : 0,
                 'created_at' => $p->created_at ?? $now,
                 'updated_at' => $p->updated_at ?? $now,
             ];
@@ -141,76 +188,14 @@ class ImportLegacyMaitriData extends Command
         }
         $this->line('  ✓ '.count($productsData).' Produk berhasil diimpor.');
 
-        // 6. Impor Item Produk (Product Items)
-        $this->info('Mengimpor Item Produk (Product Items)...');
-        $legacyItems = DB::select("SELECT * FROM {$sourceDb}.product_items ORDER BY selling_price ASC");
-        $itemsData = [];
-
-        foreach ($legacyItems as $item) {
-            $sku = $item->digiflazz_sku;
-            $h2hMatch = $sku ? $h2hProducts->get($sku) : null;
-            $digiMatch = ($sku && $legacyDigiflazz->has($sku)) ? $legacyDigiflazz->get($sku) : null;
-
-            // Tentukan h2h_price
-            $sellingPrice = (int) round((float) $item->selling_price);
-            $profitMargin = (int) round((float) $item->profit_margin);
-
-            if ($h2hMatch && (int) $h2hMatch->h2h_price > 0) {
-                $h2hPrice = (int) $h2hMatch->h2h_price;
-            } elseif ($digiMatch && (float) $digiMatch->price > 0) {
-                $h2hPrice = (int) round((float) $digiMatch->price);
-            } else {
-                $h2hPrice = max(0, $sellingPrice - $profitMargin);
-            }
-
-            // Tentukan status produk
-            $status = 'AVAILABLE';
-            if ($h2hMatch && ! empty($h2hMatch->status)) {
-                $status = $h2hMatch->status;
-            } elseif ($digiMatch) {
-                $status = ($digiMatch->buyer_product_status && $digiMatch->seller_product_status) ? 'AVAILABLE' : 'EMPTY';
-            }
-
-            // Cut off dan deskripsi item
-            $startCutOff = $h2hMatch->start_cut_off ?? $digiMatch->start_cut_off ?? null;
-            $endCutOff = $h2hMatch->end_cut_off ?? $digiMatch->end_cut_off ?? null;
-            $desc = $h2hMatch->desc ?? $digiMatch->desc ?? null;
-            $unlimitedStock = (int) ($h2hMatch->unlimited_stock ?? $digiMatch->unlimited_stock ?? 1);
-            $stock = (int) ($h2hMatch->stock ?? $digiMatch->stock ?? 0);
-            $multi = (int) ($h2hMatch->multi ?? $digiMatch->multi ?? 0);
-
-            $itemsData[] = [
-                'id' => $item->id,
-                'product_id' => $item->product_id,
-                'buyer_sku_code' => $sku,
-                'name' => $item->name,
-                'category_group' => $item->category ?: 'Umum',
-                'h2h_price' => $h2hPrice,
-                'price' => $sellingPrice,
-                'profit_type' => 'fixed',
-                'profit_value' => $profitMargin,
-                'status' => $status,
-                'start_cut_off' => $startCutOff,
-                'end_cut_off' => $endCutOff,
-                'desc' => $desc,
-                'unlimited_stock' => $unlimitedStock,
-                'stock' => $stock,
-                'multi' => $multi,
-                'sort_order' => $item->sort_order ?? 0,
-                'is_active' => (int) $item->is_active,
-                'created_at' => $item->created_at ?? $now,
-                'updated_at' => $item->updated_at ?? $now,
-            ];
-        }
-
-        // Insert items in chunks
+        // 7. Insert items in chunks
         foreach (array_chunk($itemsData, 100) as $chunk) {
             DB::table('product_items')->insert($chunk);
         }
-        $this->line('  ✓ '.count($itemsData).' Item Produk berhasil diimpor.');
+        $this->line('  ✓ '.count($itemsData)." Item Produk berhasil diimpor (dilewati {$skippedCount} item yang tidak terdaftar di H2H).");
 
         $this->newLine();
-        $this->info('✅ Sukses! Seluruh data kategori ('.count($categoriesData).'), subkategori ('.count($subCategoriesData).'), produk ('.count($productsData).'), dan item ('.count($itemsData).") dari {$sourceDb} telah disesuaikan ke template ini.");
+        $this->info('✅ Sukses! Seluruh data kategori ('.count($categoriesData).'), subkategori ('.count($subCategoriesData).'), produk ('.count($productsData).'), dan item ('.count($itemsData).') telah disinkronkan murni dengan H2H Maitri.');
 
         return Command::SUCCESS;
     }
