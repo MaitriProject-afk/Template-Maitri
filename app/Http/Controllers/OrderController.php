@@ -30,9 +30,13 @@ class OrderController extends Controller
             'item_id' => 'required|integer',
             'target_input' => 'required|string|max:100',
             'zone_id' => 'nullable|string|max:50',
-            'whatsapp' => 'nullable|string|max:30',
-            'email' => 'nullable|email|max:100',
+            'whatsapp' => 'required|string|max:30',
+            'email' => 'required|email|max:100',
             'payment_method' => 'required|string|in:qris',
+        ], [
+            'whatsapp.required' => 'Nomor WhatsApp wajib diisi untuk notifikasi transaksi.',
+            'email.required' => 'Alamat email wajib diisi untuk pengiriman bukti invoice resmi.',
+            'email.email' => 'Format alamat email tidak valid.',
         ]);
 
         $item = ProductItem::with('product')->find($request->item_id);

@@ -15,7 +15,6 @@ import {
     HelpCircle, 
     CheckCircle2, 
     AlertCircle, 
-    Tag, 
     Share2, 
     MessageCircle,
     ChevronDown,
@@ -56,9 +55,6 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
     const [selectedItem, setSelectedItem] = useState((product.items && product.items[0]) || null);
     const [whatsapp, setWhatsapp] = useState('');
     const [email, setEmail] = useState((auth?.user?.email) || '');
-    const [promoCode, setPromoCode] = useState('');
-    const [promoDiscount, setPromoDiscount] = useState(0);
-    const [promoSuccess, setPromoSuccess] = useState(false);
 
     // Modal & Invoice states
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -79,7 +75,7 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
     // Calculations (QRIS 0.7% fee as requested)
     const basePrice = selectedItem ? selectedItem.price : 0;
     const qrisFee = Math.ceil(basePrice * 0.007);
-    const totalPrice = Math.max(0, basePrice + qrisFee - promoDiscount);
+    const totalPrice = basePrice + qrisFee;
 
     // Countdown timer for QRIS invoice
     useEffect(() => {
@@ -104,20 +100,6 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
         return 'Rp ' + Number(num).toLocaleString('id-ID');
     };
 
-    // Apply promo voucher
-    const handleApplyPromo = () => {
-        if (!promoCode.trim()) return;
-        const code = promoCode.trim().toUpperCase();
-        if (code === 'MAITRIHEMAT' || code === 'MAITRI' || code === 'PROMO') {
-            setPromoDiscount(2000);
-            setPromoSuccess(true);
-        } else {
-            alert('Kode promo tidak valid atau sudah habis kuota. Coba gunakan: MAITRIHEMAT');
-            setPromoDiscount(0);
-            setPromoSuccess(false);
-        }
-    };
-
     const [isValidating, setIsValidating] = useState(false);
 
     // Form validation before checkout (strict client & backend validation)
@@ -136,7 +118,16 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
             return;
         }
         if (!whatsapp.trim()) {
-            alert('Silakan masukkan nomor WhatsApp untuk notifikasi dan bukti transaksi.');
+            alert('Silakan masukkan nomor WhatsApp aktif untuk notifikasi dan bukti transaksi.');
+            return;
+        }
+        if (!email.trim()) {
+            alert('Silakan masukkan alamat email aktif untuk pengiriman bukti pembayaran dan digital invoice.');
+            return;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+            alert('Format alamat email tidak valid. Pastikan alamat email Anda sudah benar (contoh: user@gmail.com).');
             return;
         }
 
@@ -166,13 +157,18 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
             return;
         }
 
+        if (!whatsapp?.trim() || !email?.trim()) {
+            alert('Nomor WhatsApp dan Alamat Email wajib diisi.');
+            return;
+        }
+
         setIsSubmittingCheckout(true);
         router.post(route('checkout.store'), {
             item_id: selectedItem.id,
             target_input: targetInput,
             zone_id: zoneInput || null,
-            whatsapp: whatsapp || null,
-            email: email || null,
+            whatsapp: whatsapp.trim(),
+            email: email.trim(),
             payment_method: 'qris',
         }, {
             onError: (errors) => {
@@ -766,8 +762,9 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {/* Nomor WhatsApp */}
                                 <div>
-                                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5">
+                                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5 flex items-center">
                                         NOMOR WHATSAPP (AKTIF)
+                                        <span className="text-red-500 font-black ml-1 text-sm">*</span>
                                     </label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
@@ -775,6 +772,7 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                                         </div>
                                         <input
                                             type="tel"
+                                            required
                                             value={whatsapp}
                                             onChange={(e) => setWhatsapp(e.target.value.replace(/[^0-9]/g, ''))}
                                             placeholder="Cth: 081234567890"
@@ -782,14 +780,15 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                                         />
                                     </div>
                                     <p className="text-[10px] text-ink-muted mt-1">
-                                        Notifikasi status transaksi otomatis dikirim ke nomor ini.
+                                        Wajib diisi: Notifikasi status transaksi otomatis dikirim ke nomor ini.
                                     </p>
                                 </div>
 
                                 {/* Alamat Email */}
                                 <div>
-                                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5">
-                                        ALAMAT EMAIL (OPSIONAL)
+                                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5 flex items-center">
+                                        ALAMAT EMAIL (WAJIB)
+                                        <span className="text-red-500 font-black ml-1 text-sm">*</span>
                                     </label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
@@ -797,6 +796,7 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                                         </div>
                                         <input
                                             type="email"
+                                            required
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             placeholder="Cth: nama@email.com"
@@ -804,53 +804,13 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                                         />
                                     </div>
                                     <p className="text-[10px] text-ink-muted mt-1">
-                                        Untuk pengiriman struk digital & bukti pembayaran resmi.
+                                        Wajib diisi: Untuk pengiriman struk digital & bukti pembayaran resmi.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* STEP 5: Kode Promo (Opsional) */}
-                        <div className="sketch-card bg-white p-5 sm:p-6 rounded-3xl border-2 border-ink shadow-sketch">
-                            <div className="flex items-center gap-2.5 mb-3">
-                                <span className="w-7 h-7 rounded-xl bg-brand text-white border-2 border-ink shadow-sketch-xs font-mono font-black text-xs flex items-center justify-center">
-                                    05
-                                </span>
-                                <h2 className="text-base sm:text-lg font-black text-ink">
-                                    Kode Promo (Opsional)
-                                </h2>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <div className="relative flex-1">
-                                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
-                                        <Tag className="w-4 h-4" />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        value={promoCode}
-                                        onChange={(e) => setPromoCode(e.target.value)}
-                                        placeholder="Masukkan kode promo (Cth: MAITRIHEMAT)"
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-ink rounded-xl shadow-sketch-xs focus:ring-0 focus:border-brand text-xs sm:text-sm font-semibold uppercase font-mono"
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={handleApplyPromo}
-                                    className="sketch-btn px-4 py-2.5 bg-brand text-white text-xs font-bold rounded-xl border-2 border-ink shadow-sketch-xs shrink-0"
-                                >
-                                    Terapkan
-                                </button>
-                            </div>
-
-                            {promoSuccess && (
-                                <p className="text-xs font-bold text-emerald-600 mt-2 flex items-center gap-1">
-                                    <Check className="w-4 h-4" /> Kode promo berhasil diterapkan! Hemat {formatRp(promoDiscount)}.
-                                </p>
-                            )}
-                        </div>
-
-                        {/* STEP 6: Ringkasan & Tombol Beli */}
+                        {/* Ringkasan & Tombol Beli */}
                         <div className="sketch-card bg-paper-grid p-5 sm:p-7 rounded-3xl border-2 border-ink shadow-sketch">
                             <h2 className="text-lg font-black text-ink mb-4 pb-2 border-b-2 border-ink/10">
                                 Ringkasan Pembayaran
@@ -873,12 +833,6 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                                     <span>Biaya Layanan (QRIS 0.7%):</span>
                                     <span className="font-mono font-bold text-ink">{formatRp(qrisFee)}</span>
                                 </div>
-                                {promoDiscount > 0 && (
-                                    <div className="flex justify-between items-center text-emerald-600 font-bold">
-                                        <span>Potongan Promo:</span>
-                                        <span className="font-mono">-{formatRp(promoDiscount)}</span>
-                                    </div>
-                                )}
 
                                 <div className="my-3 border-t-2 border-dashed border-ink/20"></div>
 
@@ -957,6 +911,10 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                                 <div className="flex justify-between">
                                     <span className="text-ink-muted">Nomor WA:</span>
                                     <span className="font-mono font-bold text-ink">{whatsapp}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-ink-muted">Email Invoice:</span>
+                                    <span className="font-mono font-bold text-ink truncate max-w-[200px]" title={email}>{email}</span>
                                 </div>
                             </div>
 

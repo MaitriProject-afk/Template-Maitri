@@ -104,6 +104,7 @@ class H2hCheckoutTest extends TestCase
             'target_input' => '12345678',
             'zone_id' => '2001',
             'whatsapp' => '08123456789',
+            'email' => 'customer@gmail.com',
             'payment_method' => 'qris',
         ]);
 
@@ -113,6 +114,7 @@ class H2hCheckoutTest extends TestCase
         $this->assertNotNull($transaction);
         $this->assertEquals('ML-86', $transaction->buyer_sku_code);
         $this->assertEquals('12345678 (2001)', $transaction->customer_no);
+        $this->assertEquals('customer@gmail.com', $transaction->customer_email);
         $this->assertEquals(22000, $transaction->reseller_price);
         $this->assertEquals(165, $transaction->admin_fee);
         $this->assertEquals(22165, $transaction->total_payment);
@@ -137,5 +139,54 @@ class H2hCheckoutTest extends TestCase
             'payment_status' => 'UNPAID',
             'is_paid' => false,
         ]);
+    }
+
+    public function test_checkout_requires_whatsapp_and_email(): void
+    {
+        $category = Category::create([
+            'name' => 'Games',
+            'slug' => 'games-validation',
+            'is_active' => true,
+        ]);
+
+        $product = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Mobile Legends Val',
+            'slug' => 'mobile-legends-val',
+            'input_type' => 'id_zone',
+            'input_label' => 'User ID',
+            'has_zone_id' => true,
+            'is_active' => true,
+        ]);
+
+        $item = ProductItem::create([
+            'product_id' => $product->id,
+            'buyer_sku_code' => 'ML-86',
+            'name' => '86 Diamonds',
+            'h2h_price' => 20000,
+            'price' => 22000,
+            'status' => 'AVAILABLE',
+            'is_active' => true,
+        ]);
+
+        // Attempt checkout without whatsapp and email
+        $response = $this->post(route('checkout.store'), [
+            'item_id' => $item->id,
+            'target_input' => '12345678',
+            'payment_method' => 'qris',
+        ]);
+
+        $response->assertSessionHasErrors(['whatsapp', 'email']);
+
+        // Attempt checkout with invalid email
+        $invalidEmailResponse = $this->post(route('checkout.store'), [
+            'item_id' => $item->id,
+            'target_input' => '12345678',
+            'whatsapp' => '08123456789',
+            'email' => 'bukan-email',
+            'payment_method' => 'qris',
+        ]);
+
+        $invalidEmailResponse->assertSessionHasErrors(['email']);
     }
 }
