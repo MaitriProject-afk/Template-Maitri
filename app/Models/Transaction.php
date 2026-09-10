@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Mail\TransactionInvoiceMail;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class Transaction extends Model
 {
@@ -21,6 +24,7 @@ class Transaction extends Model
         'product_name',
         'customer_no',
         'customer_whatsapp',
+        'customer_email',
         'h2h_price',
         'reseller_price',
         'admin_fee',
@@ -37,6 +41,7 @@ class Transaction extends Model
         'expired_at',
         'paid_at',
         'completed_at',
+        'invoice_email_sent_at',
         'raw_checkout_response',
         'webhook_logs',
     ];
@@ -50,6 +55,7 @@ class Transaction extends Model
         'expired_at' => 'datetime',
         'paid_at' => 'datetime',
         'completed_at' => 'datetime',
+        'invoice_email_sent_at' => 'datetime',
         'raw_checkout_response' => 'array',
         'webhook_logs' => 'array',
     ];
@@ -141,5 +147,71 @@ class Transaction extends Model
     public function getIsRefundedAttribute(): bool
     {
         return $this->isRefunded();
+    }
+
+    /**
+     * Resolve email address for sending invoice.
+     */
+    public function getRecipientEmail(): ?string
+    {
+        if (! empty($this->customer_email) && filter_var($this->customer_email, FILTER_VALIDATE_EMAIL)) {
+            return $this->customer_email;
+        }
+
+        if ($this->user && ! empty($this->user->email) && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
+            return $this->user->email;
+        }
+
+        return null;
+    }
+
+    /**
+     * Send invoice or failed notification email depending on transaction status.
+     * Condition 1: isPaid() and topup SUCCESS -> Send successful invoice.
+     * Condition 2: isPaid() and topup FAILED -> Send failed notice with WhatsApp admin button.
+     */
+    public function sendInvoiceEmail(bool $force = false): bool
+    {
+        // Must be paid
+        if (! $this->isPaid()) {
+            return false;
+        }
+
+        // Must be completed or failed
+        if (! $this->isTopupCompleted() && ! $this->isTopupFailed()) {
+            return false;
+        }
+
+        // Prevent duplicate sending unless forced
+        if ($this->invoice_email_sent_at && ! $force) {
+            return false;
+        }
+
+        $recipient = $this->getRecipientEmail();
+        if (! $recipient) {
+            return false;
+        }
+
+        try {
+            // Apply dynamic mail configuration from site settings
+            SiteSetting::applyMailConfig();
+
+            $type = $this->isTopupCompleted() ? 'success' : 'failed';
+            Mail::to($recipient)->send(new TransactionInvoiceMail($this, $type));
+
+            $this->update([
+                'invoice_email_sent_at' => Carbon::now(),
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('Failed to send transaction invoice email', [
+                'invoice_code' => $this->invoice_code,
+                'recipient' => $recipient,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 }

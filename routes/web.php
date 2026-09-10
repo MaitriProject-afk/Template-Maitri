@@ -79,6 +79,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/transactions', [TransactionController::class, 'index'])->name('admin.transactions.index');
     Route::post('/transactions/{transaction}/sync-status', [TransactionController::class, 'syncStatus'])->name('admin.transactions.sync-status');
     Route::post('/transactions/{transaction}/mark-refunded', [TransactionController::class, 'markRefunded'])->name('admin.transactions.mark-refunded');
+    Route::post('/transactions/{transaction}/resend-email', [TransactionController::class, 'resendInvoiceEmail'])->name('admin.transactions.resend-email');
 
     // Kelola Pengguna (User Management & Role Promotion)
     Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');

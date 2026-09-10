@@ -31,6 +31,7 @@ class OrderController extends Controller
             'target_input' => 'required|string|max:100',
             'zone_id' => 'nullable|string|max:50',
             'whatsapp' => 'nullable|string|max:30',
+            'email' => 'nullable|email|max:100',
             'payment_method' => 'required|string|in:qris',
         ]);
 
@@ -62,6 +63,9 @@ class OrderController extends Controller
             $customerNo .= ' ('.trim($request->zone_id).')';
         }
 
+        // Resolve customer email (input or fallback to logged in user email)
+        $customerEmail = ! empty($request->email) ? trim($request->email) : (auth()->user()?->email);
+
         // Generate unique reseller reference invoice code
         $invoiceCode = 'INV-'.date('YmdHis').'-'.strtoupper(Str::random(4));
 
@@ -74,6 +78,7 @@ class OrderController extends Controller
             'product_name' => $item->product->name.' - '.$item->name,
             'customer_no' => $customerNo,
             'customer_whatsapp' => $request->whatsapp,
+            'customer_email' => $customerEmail,
             'h2h_price' => $item->h2h_price,
             'reseller_price' => $item->price,
             'admin_fee' => 0,
@@ -119,6 +124,7 @@ class OrderController extends Controller
             'item_name' => $transaction->productItem?->name,
             'customer_no' => $transaction->customer_no,
             'customer_whatsapp' => $transaction->customer_whatsapp,
+            'customer_email' => $transaction->customer_email,
             'reseller_price' => $transaction->reseller_price,
             'formatted_reseller_price' => $transaction->formatted_reseller_price,
             'admin_fee' => $transaction->admin_fee,

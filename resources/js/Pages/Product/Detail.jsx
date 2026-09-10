@@ -172,6 +172,7 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
             target_input: targetInput,
             zone_id: zoneInput || null,
             whatsapp: whatsapp || null,
+            email: email || null,
             payment_method: 'qris',
         }, {
             onError: (errors) => {

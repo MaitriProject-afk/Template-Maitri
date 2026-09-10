@@ -124,6 +124,9 @@ class H2hWebhookController extends Controller
                         'webhook_logs' => $logs,
                     ]);
                 }
+
+                // Otomatis kirim email invoice (sukses / gagal) jika transaksi telah lunas
+                $transaction->fresh()->sendInvoiceEmail();
                 break;
 
             default:

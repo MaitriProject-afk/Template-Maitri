@@ -171,6 +171,9 @@ class TransactionController extends Controller
                 $transaction->update($updateData);
             }
 
+            // Kirim email invoice jika status telah final (sukses/gagal) dan belum pernah terkirim
+            $transaction->fresh()->sendInvoiceEmail();
+
             if (request()->wantsJson()) {
                 return response()->json([
                     'success' => true,
@@ -192,5 +195,39 @@ class TransactionController extends Controller
         }
 
         return back()->with('error', $errorMessage);
+    }
+
+    /**
+     * Resend transaction invoice or failed notice email manually by Admin.
+     */
+    public function resendInvoiceEmail(Transaction $transaction): JsonResponse|RedirectResponse
+    {
+        $sent = $transaction->sendInvoiceEmail(force: true);
+
+        if ($sent) {
+            $msg = 'Email invoice transaksi '.$transaction->invoice_code.' berhasil dikirimkan.';
+            if (request()->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $msg,
+                    'transaction' => $transaction->fresh(),
+                ]);
+            }
+
+            return back()->with('success', $msg);
+        }
+
+        $recipient = $transaction->getRecipientEmail();
+        $reason = ! $recipient ? 'Email pembeli tidak ditemukan.' : (! $transaction->isPaid() ? 'Transaksi belum lunas.' : 'Status pengisian belum selesai atau gagal.');
+        $msg = 'Gagal mengirim email invoice: '.$reason;
+
+        if (request()->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => $msg,
+            ], 422);
+        }
+
+        return back()->with('error', $msg);
     }
 }

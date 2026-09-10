@@ -19,7 +19,8 @@ import {
     RotateCcw,
     ShieldCheck,
     ArrowUpDown,
-    HelpCircle
+    HelpCircle,
+    Mail
 } from 'lucide-react';
 
 export default function Transactions({ auth, transactions, filters, metrics }) {
@@ -29,6 +30,7 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
 
     const [syncingId, setSyncingId] = useState(null);
     const [refundingId, setRefundingId] = useState(null);
+    const [sendingEmailId, setSendingEmailId] = useState(null);
     const [syncNotification, setSyncNotification] = useState(null);
     const [copiedId, setCopiedId] = useState(null);
 
@@ -80,6 +82,35 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
             });
         } finally {
             setSyncingId(null);
+            setTimeout(() => setSyncNotification(null), 5000);
+        }
+    };
+
+    const handleResendEmail = async (transactionId, invoiceCode) => {
+        setSendingEmailId(transactionId);
+        setSyncNotification(null);
+
+        try {
+            const response = await axios.post(`/admin/transactions/${transactionId}/resend-email`);
+            if (response.data && response.data.success) {
+                setSyncNotification({
+                    type: 'success',
+                    message: response.data.message || `Email invoice ${invoiceCode} berhasil dikirim!`,
+                });
+                router.reload({ only: ['transactions'] });
+            } else {
+                setSyncNotification({
+                    type: 'error',
+                    message: response.data.message || 'Gagal mengirim email invoice.',
+                });
+            }
+        } catch (error) {
+            setSyncNotification({
+                type: 'error',
+                message: error.response?.data?.message || 'Terjadi kesalahan saat mengirim email invoice.',
+            });
+        } finally {
+            setSendingEmailId(null);
             setTimeout(() => setSyncNotification(null), 5000);
         }
     };
@@ -611,6 +642,20 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                                                             <span>{isSyncing ? 'Cek...' : 'Cek Status'}</span>
                                                         </button>
 
+                                                        {/* Tombol Kirim Email Invoice */}
+                                                        {(trx.payment_status === 'PAID' || trx.payment_status === 'SETTLED' || trx.payment_status === 'SUCCESS') && (
+                                                            <button
+                                                                type="button"
+                                                                disabled={sendingEmailId === trx.id}
+                                                                onClick={() => handleResendEmail(trx.id, trx.invoice_code)}
+                                                                className="sketch-btn px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-[11px] rounded-lg border border-ink flex items-center gap-1 shadow-sketch-xs transition-all disabled:opacity-50"
+                                                                title={trx.invoice_email_sent_at ? 'Email telah dikirim. Klik untuk kirim ulang.' : 'Kirim Invoice via Email'}
+                                                            >
+                                                                <Mail className={`w-3 h-3 text-blue-600 ${sendingEmailId === trx.id ? 'animate-bounce' : ''}`} />
+                                                                <span>{sendingEmailId === trx.id ? '...' : 'Email'}</span>
+                                                            </button>
+                                                        )}
+
                                                         {/* Tombol Halaman Invoice Real */}
                                                         <Link
                                                             href={`/invoice/${trx.invoice_code}`}
@@ -778,6 +823,20 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                                                     <RefreshCw className={`w-3 h-3 text-brand ${isSyncing ? 'animate-spin' : ''}`} />
                                                     <span>{isSyncing ? 'Cek...' : 'Cek'}</span>
                                                 </button>
+
+                                                {/* Tombol Kirim Email Invoice */}
+                                                {(trx.payment_status === 'PAID' || trx.payment_status === 'SETTLED' || trx.payment_status === 'SUCCESS') && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={sendingEmailId === trx.id}
+                                                        onClick={() => handleResendEmail(trx.id, trx.invoice_code)}
+                                                        className="sketch-btn px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs rounded-xl border border-ink flex items-center gap-1 shadow-sketch-xs disabled:opacity-50"
+                                                        title="Kirim Invoice via Email"
+                                                    >
+                                                        <Mail className={`w-3 h-3 text-blue-600 ${sendingEmailId === trx.id ? 'animate-bounce' : ''}`} />
+                                                        <span>{sendingEmailId === trx.id ? '...' : 'Email'}</span>
+                                                    </button>
+                                                )}
 
                                                 {/* Tombol Invoice */}
                                                 <Link
