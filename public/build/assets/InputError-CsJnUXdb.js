@@ -1,0 +1,1 @@
+import{t as e}from"./app-3FAkKJ_l.js";var t=e();function n({message:e,className:n=``,...r}){return e?(0,t.jsx)(`p`,{...r,className:`text-sm text-red-600 dark:text-red-400 `+n,children:e}):null}export{n as t};

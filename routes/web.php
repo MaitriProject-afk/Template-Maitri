@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\H2hProductController;
 use App\Http\Controllers\Admin\ProductManageController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicCatalogController;
@@ -69,9 +71,12 @@ Route::middleware('auth')->group(function () {
 
 // Admin Routes (Strictly protected with 'admin' role middleware)
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/', function () {
-        return Inertia::render('Admin/Index');
-    })->name('admin.index');
+    Route::get('/', [DashboardController::class, 'index'])->name('admin.index');
+    Route::post('/refresh-h2h-profile', [DashboardController::class, 'refreshH2hProfile'])->name('admin.refresh-h2h-profile');
+
+    // Data Transaksi
+    Route::get('/transactions', [TransactionController::class, 'index'])->name('admin.transactions.index');
+    Route::post('/transactions/{transaction}/sync-status', [TransactionController::class, 'syncStatus'])->name('admin.transactions.sync-status');
 
     Route::get('/settings', [SettingController::class, 'index'])->name('admin.settings');
     Route::post('/settings', [SettingController::class, 'update'])->name('admin.settings.update');

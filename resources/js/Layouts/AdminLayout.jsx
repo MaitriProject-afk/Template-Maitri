@@ -68,9 +68,7 @@ export default function AdminLayout({
             id: 'orders',
             name: 'Data Transaksi',
             icon: ReceiptText,
-            href: '#',
-            badge: 'Baru (3)',
-            badgeColor: 'bg-sketch-yellow text-ink font-bold',
+            href: '/admin/transactions',
         },
         {
             id: 'settings',

@@ -151,4 +151,67 @@ class H2hCheckoutService
             ];
         }
     }
+
+    /**
+     * Get H2H Reseller profile and balance from Maitri API.
+     */
+    public function getProfile(): array
+    {
+        $settings = SiteSetting::getSettings();
+        $apiKey = $settings['h2h_api_key'] ?? '';
+
+        if (empty($apiKey)) {
+            return [
+                'success' => false,
+                'message' => 'Kredensial API H2H belum diatur di Pengaturan Toko.',
+            ];
+        }
+
+        $baseUrl = rtrim($settings['h2h_api_url'] ?? 'https://maitriproject.my.id/api/v1/h2h', '/');
+        $endpoint = str_contains($baseUrl, '/api/v1/h2h')
+            ? $baseUrl.'/profile'
+            : $baseUrl.'/api/v1/h2h/profile';
+
+        try {
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'X-Maitri-API-Key' => $apiKey,
+                    'Accept' => 'application/json',
+                ])
+                ->timeout(8)
+                ->get($endpoint);
+
+            if ($response->successful()) {
+                $payload = $response->json();
+                $data = $payload['data'] ?? $payload;
+
+                $balance = $data['commission_balance'] ?? $data['balance'] ?? 0;
+                $formattedBalance = $data['formatted_balance'] ?? ('Rp '.number_format((float) $balance, 0, ',', '.'));
+
+                return [
+                    'success' => true,
+                    'message' => 'Berhasil terhubung ke server H2H.',
+                    'profile' => [
+                        'reseller_name' => $data['reseller_name'] ?? $data['name'] ?? 'Maitri Reseller',
+                        'name' => $data['reseller_name'] ?? $data['name'] ?? 'Maitri Reseller',
+                        'email' => $data['email'] ?? '-',
+                        'phone' => $data['phone'] ?? '-',
+                        'status' => $data['status'] ?? 'ACTIVE',
+                        'balance' => $balance,
+                        'formatted_balance' => $formattedBalance,
+                    ],
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => $response->json('message') ?? 'Gagal mengambil data profil provider.',
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
 }
