@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -36,5 +37,10 @@ class DatabaseSeeder extends Seeder
                 'phone' => null,
             ]
         );
+
+        // 3. Impor data kategori, produk, dan item dari legacy maitri_laravel4 jika ada
+        if (! empty(DB::select("SHOW DATABASES LIKE 'maitri_laravel4'"))) {
+            $this->command->call('maitri:import-legacy');
+        }
     }
 }

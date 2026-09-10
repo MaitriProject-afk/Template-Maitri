@@ -23,7 +23,8 @@ import {
     Lock,
     ExternalLink,
     Gamepad2,
-    PackageOpen
+    PackageOpen,
+    User
 } from 'lucide-react';
 
 export default function ProductDetail({ slug, product: initialProduct, auth }) {
@@ -118,7 +119,8 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
     // Form validation before checkout
     const handleCheckoutClick = () => {
         if (!targetInput.trim()) {
-            alert(product.inputType === 'phone' ? 'Silakan masukkan nomor handphone tujuan.' : 'Silakan masukkan User ID akun Anda.');
+            const labelName = product.inputType === 'single_id' ? 'User ID akun Anda' : (product.inputLabel || 'target tujuan');
+            alert(`Silakan masukkan ${labelName}.`);
             return;
         }
         if (!selectedItem) {
@@ -392,7 +394,25 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                             </div>
 
                             {/* Field Types */}
-                            {product.inputType === 'game_user_zone' ? (
+                            {product.inputType === 'single_id' || product.inputType === 'id_only' ? (
+                                <div>
+                                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5">
+                                        {product.inputLabel || 'USER ID'}
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
+                                            <User className="w-4 h-4 text-brand" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={targetInput}
+                                            onChange={(e) => setTargetInput(e.target.value)}
+                                            placeholder={product.inputPlaceholder || 'Masukkan User ID'}
+                                            className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-white border-2 border-ink rounded-xl shadow-sketch-xs focus:ring-0 focus:border-brand text-xs sm:text-sm font-semibold"
+                                        />
+                                    </div>
+                                </div>
+                            ) : product.inputType === 'game_user_zone' ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                     <div>
                                         <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5">
@@ -451,17 +471,17 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                             ) : (
                                 <div>
                                     <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5">
-                                        {product.inputLabel}
+                                        {product.inputLabel || 'target tujuan'}
                                     </label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
-                                            <Phone className="w-4 h-4" />
+                                            <Phone className="w-4 h-4 text-brand" />
                                         </div>
                                         <input
-                                            type="tel"
+                                            type="text"
                                             value={targetInput}
-                                            onChange={(e) => setTargetInput(e.target.value.replace(/[^0-9]/g, ''))}
-                                            placeholder={product.inputPlaceholder}
+                                            onChange={(e) => setTargetInput(e.target.value)}
+                                            placeholder={product.inputPlaceholder || 'Target'}
                                             className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-white border-2 border-ink rounded-xl shadow-sketch-xs focus:ring-0 focus:border-brand text-xs sm:text-sm font-semibold"
                                         />
                                     </div>
@@ -469,7 +489,7 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                             )}
 
                             <p className="text-[11px] text-ink-muted mt-2">
-                                ℹ️ {product.inputHelp}
+                                ℹ️ {product.inputHelp || (product.inputType === 'single_id' ? 'Masukkan User ID akun game Anda dengan benar.' : 'Masukkan target tujuan (nomor telepon / ID akun) dengan benar.')}
                             </p>
                         </div>
 

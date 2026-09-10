@@ -959,8 +959,8 @@ export default function ProductManage({
                                                         ...productModal.data,
                                                         input_type: val,
                                                         has_zone_id: val === 'id_zone',
-                                                        input_label: val === 'phone' ? 'Nomor WhatsApp / HP' : 'User ID',
-                                                        input_placeholder: val === 'phone' ? 'Cth: 081234567890' : 'Cth: 12345678',
+                                                        input_label: val === 'phone' ? 'target tujuan' : 'User ID',
+                                                        input_placeholder: val === 'phone' ? 'Target' : 'Masukkan User ID',
                                                     },
                                                 });
                                             }}

@@ -912,7 +912,16 @@ export default function ProductEdit({ auth, product, categories = [], h2hSkus = 
                                     </label>
                                     <select
                                         value={productForm.input_type}
-                                        onChange={(e) => setProductForm('input_type', e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setProductForm((prev) => ({
+                                                ...prev,
+                                                input_type: val,
+                                                has_zone_id: val === 'id_zone',
+                                                input_label: val === 'phone' ? 'target tujuan' : 'User ID',
+                                                input_placeholder: val === 'phone' ? 'Target' : 'Masukkan User ID',
+                                            }));
+                                        }}
                                         className="w-full px-4 py-2.5 bg-white border-2 border-ink rounded-xl text-xs sm:text-sm font-bold shadow-sketch-xs focus:ring-0 focus:border-brand"
                                     >
                                         <option value="id_zone">User ID & Zone ID (Cth: Mobile Legends)</option>
