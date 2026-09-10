@@ -28,6 +28,7 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
     const [topupStatus, setTopupStatus] = useState(filters.topup_status || 'all');
 
     const [syncingId, setSyncingId] = useState(null);
+    const [refundingId, setRefundingId] = useState(null);
     const [syncNotification, setSyncNotification] = useState(null);
     const [copiedId, setCopiedId] = useState(null);
 
@@ -83,6 +84,40 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
         }
     };
 
+    const handleMarkRefunded = async (transactionId, invoiceCode) => {
+        if (!window.confirm(`Konfirmasi: Apakah uang untuk invoice ${invoiceCode} sudah berhasil di-refund / dikembalikan ke pelanggan?`)) {
+            return;
+        }
+
+        setRefundingId(transactionId);
+        setSyncNotification(null);
+
+        try {
+            const response = await axios.post(`/admin/transactions/${transactionId}/mark-refunded`);
+            if (response.data && response.data.success) {
+                setSyncNotification({
+                    type: 'success',
+                    message: response.data.message || `Invoice ${invoiceCode} berhasil ditandai SUDAH DI-REFUND!`,
+                });
+                // Reload props so omset and refund metrics update instantly
+                router.reload({ only: ['transactions', 'metrics'] });
+            } else {
+                setSyncNotification({
+                    type: 'error',
+                    message: response.data.message || 'Gagal memperbarui status refund.',
+                });
+            }
+        } catch (error) {
+            setSyncNotification({
+                type: 'error',
+                message: error.response?.data?.message || 'Terjadi kesalahan saat memproses status refund.',
+            });
+        } finally {
+            setRefundingId(null);
+            setTimeout(() => setSyncNotification(null), 5000);
+        }
+    };
+
     const handleCopy = (text, key) => {
         navigator.clipboard.writeText(text);
         setCopiedId(key);
@@ -98,6 +133,13 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-500">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                         LUNAS
+                    </span>
+                );
+            case 'REFUNDED':
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-100 text-purple-900 border border-purple-500 shadow-sketch-xs">
+                        <RotateCcw className="w-3 h-3 text-purple-700" />
+                        DI-REFUND
                     </span>
                 );
             case 'UNPAID':
@@ -247,12 +289,14 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
 
                     <div className="sketch-card bg-paper-grid p-4 rounded-2xl border-2 border-ink shadow-sketch-xs">
                         <span className="text-[10px] font-mono uppercase text-ink-muted font-bold block">
-                            OMSET LUNAS
+                            OMSET LUNAS (SUKSES)
                         </span>
                         <div className="text-xl sm:text-2xl font-black font-mono text-emerald-700 mt-1">
                             {metrics?.formatted_paid_revenue || 'Rp 0'}
                         </div>
-                        <span className="text-[10px] text-ink-muted mt-0.5 block">Total omset berhasil</span>
+                        <span className="text-[10px] text-emerald-700/80 font-medium mt-0.5 block">
+                            Produk berhasil terkirim
+                        </span>
                     </div>
 
                     <div className="sketch-card bg-paper-grid p-4 rounded-2xl border-2 border-ink shadow-sketch-xs">
@@ -275,16 +319,71 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                         <span className="text-[10px] text-ink-muted mt-0.5 block">Menunggu provider</span>
                     </div>
 
-                    <div className="sketch-card bg-paper-grid p-4 rounded-2xl border-2 border-ink shadow-sketch-xs col-span-2 lg:col-span-1">
-                        <span className="text-[10px] font-mono uppercase text-ink-muted font-bold block">
-                            GAGAL / REFUND
-                        </span>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-rose-600 mt-1">
-                            {metrics?.total_failed_topup || 0}
+                    <div className={`sketch-card p-4 rounded-2xl border-2 shadow-sketch-xs col-span-2 lg:col-span-1 transition-all ${
+                        (metrics?.total_need_refund_count || 0) > 0 
+                            ? 'bg-rose-50 border-rose-500 text-rose-900 shadow-rose-200' 
+                            : 'bg-paper-grid border-ink text-ink'
+                    }`}>
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono uppercase font-bold block text-rose-700">
+                                PERLU DI-REFUND
+                            </span>
+                            {(metrics?.total_need_refund_count || 0) > 0 && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-black bg-rose-600 text-white animate-pulse">
+                                    PERLU TINDAKAN
+                                </span>
+                            )}
                         </div>
-                        <span className="text-[10px] text-ink-muted mt-0.5 block">Perlu tindak lanjut</span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-rose-600 mt-1">
+                            {metrics?.formatted_need_refund_amount || 'Rp 0'}
+                        </div>
+                        <span className="text-[10px] font-bold text-rose-700/80 mt-0.5 block">
+                            {metrics?.total_need_refund_count || 0} pesanan (Lunas tapi gagal)
+                        </span>
                     </div>
                 </div>
+
+                {/* Banner Peringatan Refund jika ada pesanan gagal yang sudah dibayar */}
+                {(metrics?.total_need_refund_count || 0) > 0 && (
+                    <div className="p-4 sm:p-5 rounded-3xl border-2 border-rose-500 bg-rose-50 shadow-sketch text-ink flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shrink-0 border-2 border-ink shadow-sketch-xs">
+                                <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="font-black text-sm sm:text-base text-ink">
+                                        Perhatian: Ada {metrics.total_need_refund_count} Pesanan Perlu Di-Refund ({metrics.formatted_need_refund_amount})
+                                    </h3>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-200 text-rose-900 border border-rose-400">
+                                        Action Required
+                                    </span>
+                                </div>
+                                <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                                    Status pembayaran transaksi ini <strong>LUNAS</strong>, tetapi provider H2H gagal memproses produk. Saldo reseller Anda di provider sudah dikembalikan otomatis oleh provider. Mohon kembalikan/refund uang ini kepada pelanggan, lalu klik tombol <strong>"Sudah Di-refund"</strong> agar omset bersih dan status data diperbarui.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPaymentStatus('NEEDS_REFUND');
+                                    router.get(route('admin.transactions.index'), {
+                                        search: search.trim(),
+                                        payment_status: 'NEEDS_REFUND',
+                                        topup_status: topupStatus,
+                                    }, { preserveState: true, replace: true });
+                                }}
+                                className="sketch-btn px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl border-2 border-ink shadow-sketch-xs transition-all flex items-center gap-1.5"
+                            >
+                                <Filter className="w-3.5 h-3.5" />
+                                <span>Tampilkan Pesanan Perlu Refund</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* 3. Search & Filter Bar */}
                 <div className="sketch-card bg-white p-4 sm:p-5 rounded-2xl border-2 border-ink shadow-sketch">
@@ -308,7 +407,9 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                                 className="px-3 py-2 bg-white border-2 border-ink rounded-xl text-xs font-bold font-mono focus:ring-0 focus:border-ink shadow-sketch-xs"
                             >
                                 <option value="all">Semua Status Bayar</option>
+                                <option value="NEEDS_REFUND">⚠️ PERLU DI-REFUND (Lunas tapi Gagal)</option>
                                 <option value="PAID">LUNAS (Paid)</option>
+                                <option value="REFUNDED">↩️ DI-REFUND (Refunded)</option>
                                 <option value="UNPAID">MENUNGGU (Unpaid)</option>
                                 <option value="EXPIRED">KADALUARSA (Expired)</option>
                                 <option value="FAILED">GAGAL (Failed)</option>
@@ -448,6 +549,11 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                                                     <div className="space-y-1">
                                                         <div>{getPaymentBadge(trx.payment_status)}</div>
                                                         <div>{getTopupBadge(trx.topup_status)}</div>
+                                                        {trx.needs_refund && (
+                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-600 text-white shadow-sketch-xs animate-pulse">
+                                                                ⚠️ PERLU REFUND
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </td>
 
@@ -478,7 +584,21 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
 
                                                 {/* Actions */}
                                                 <td className="py-3.5 px-3 text-right">
-                                                    <div className="flex items-center justify-end gap-1.5">
+                                                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                                        {/* Tombol Sudah Di-refund */}
+                                                        {trx.needs_refund && (
+                                                            <button
+                                                                type="button"
+                                                                disabled={refundingId === trx.id}
+                                                                onClick={() => handleMarkRefunded(trx.id, trx.invoice_code)}
+                                                                className="sketch-btn px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] rounded-lg border border-ink flex items-center gap-1 shadow-sketch-xs transition-all disabled:opacity-50"
+                                                                title="Tandai uang pesanan sudah di-refund ke pelanggan"
+                                                            >
+                                                                <RotateCcw className={`w-3 h-3 ${refundingId === trx.id ? 'animate-spin' : ''}`} />
+                                                                <span>{refundingId === trx.id ? '...' : 'Sudah Di-refund'}</span>
+                                                            </button>
+                                                        )}
+
                                                         {/* Tombol Cek Status Provider H2H */}
                                                         <button
                                                             type="button"
@@ -534,7 +654,11 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                                 return (
                                     <div
                                         key={trx.id}
-                                        className="p-4 rounded-2xl border-2 border-ink bg-paper-grid shadow-sketch-xs space-y-3 hover:border-brand transition-all"
+                                        className={`p-4 rounded-2xl border-2 shadow-sketch-xs space-y-3 transition-all ${
+                                            trx.needs_refund 
+                                                ? 'border-rose-500 bg-rose-50/30' 
+                                                : 'border-ink bg-paper-grid hover:border-brand'
+                                        }`}
                                     >
                                         {/* Baris Atas: Invoice, Tanggal & Badges */}
                                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/15 pb-2.5">
@@ -563,6 +687,11 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                             {getPaymentBadge(trx.payment_status)}
                                             {getTopupBadge(trx.topup_status)}
+                                            {trx.needs_refund && (
+                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-600 text-white shadow-sketch-xs animate-pulse">
+                                                    ⚠️ PERLU REFUND
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Baris Tengah: Info Produk & Target */}
@@ -587,6 +716,28 @@ export default function Transactions({ auth, transactions, filters, metrics }) {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Callout Khusus Perlu Refund Mobile */}
+                                        {trx.needs_refund && (
+                                            <div className="p-3 rounded-xl bg-rose-100/70 border-2 border-rose-400 text-rose-950 space-y-2">
+                                                <div className="flex items-center gap-1.5 text-rose-700 text-xs font-black">
+                                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                                    <span>Top Up Gagal — Wajib Refund Uang ke Pembeli!</span>
+                                                </div>
+                                                <p className="text-[11px] text-rose-900 leading-tight">
+                                                    Uang masuk: <strong>{trx.formatted_total_payment || formatRp(trx.total_payment)}</strong>. Saldo modal Anda sudah otomatis kembali di akun reseller pusat H2H.
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    disabled={refundingId === trx.id}
+                                                    onClick={() => handleMarkRefunded(trx.id, trx.invoice_code)}
+                                                    className="sketch-btn w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl border border-ink shadow-sketch-xs flex items-center justify-center gap-1.5"
+                                                >
+                                                    <RotateCcw className={`w-3.5 h-3.5 ${refundingId === trx.id ? 'animate-spin' : ''}`} />
+                                                    <span>{refundingId === trx.id ? 'Memproses...' : 'Sudah Di-Refund ke Pembeli'}</span>
+                                                </button>
+                                            </div>
+                                        )}
 
                                         {/* SN Display if exists */}
                                         {trx.sn && (

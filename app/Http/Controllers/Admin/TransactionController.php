@@ -45,7 +45,10 @@ class TransactionController extends Controller
             });
         }
 
-        if ($paymentStatus !== 'all' && $paymentStatus !== '') {
+        if ($paymentStatus === 'NEEDS_REFUND') {
+            $query->whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+                ->where('topup_status', 'FAILED');
+        } elseif ($paymentStatus !== 'all' && $paymentStatus !== '') {
             $query->where('payment_status', $paymentStatus);
         }
 
@@ -56,10 +59,39 @@ class TransactionController extends Controller
         $transactions = $query->paginate(15)->withQueryString();
 
         // Summary metrics
+        // Omset Sukses: Hanya pesanan yang Lunas DAN Top Up Sukses
+        $successPaidRevenue = Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->where('topup_status', 'SUCCESS')
+            ->sum('total_payment');
+
+        // Total Masuk Bruto
+        $grossPaidRevenue = Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->sum('total_payment');
+
+        // Dana yang Perlu Di-Refund: Lunas tapi Top Up Gagal
+        $needRefundAmount = Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->where('topup_status', 'FAILED')
+            ->sum('total_payment');
+        $needRefundCount = Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->where('topup_status', 'FAILED')
+            ->count();
+
+        // Total Sudah Di-Refund
+        $refundedAmount = Transaction::where('payment_status', 'REFUNDED')->sum('total_payment');
+        $refundedCount = Transaction::where('payment_status', 'REFUNDED')->count();
+
         $metrics = [
             'total_transactions' => Transaction::count(),
-            'total_paid_revenue' => Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])->sum('total_payment'),
-            'formatted_paid_revenue' => 'Rp '.number_format(Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])->sum('total_payment'), 0, ',', '.'),
+            'total_paid_revenue' => $successPaidRevenue,
+            'formatted_paid_revenue' => 'Rp '.number_format((float) $successPaidRevenue, 0, ',', '.'),
+            'total_gross_revenue' => $grossPaidRevenue,
+            'formatted_gross_revenue' => 'Rp '.number_format((float) $grossPaidRevenue, 0, ',', '.'),
+            'total_need_refund_amount' => $needRefundAmount,
+            'formatted_need_refund_amount' => 'Rp '.number_format((float) $needRefundAmount, 0, ',', '.'),
+            'total_need_refund_count' => $needRefundCount,
+            'total_refunded_amount' => $refundedAmount,
+            'formatted_refunded_amount' => 'Rp '.number_format((float) $refundedAmount, 0, ',', '.'),
+            'total_refunded_count' => $refundedCount,
             'total_success_topup' => Transaction::where('topup_status', 'SUCCESS')->count(),
             'total_processing_topup' => Transaction::whereIn('topup_status', ['PROCESSING', 'WAITING'])->count(),
             'total_failed_topup' => Transaction::where('topup_status', 'FAILED')->count(),
@@ -74,6 +106,27 @@ class TransactionController extends Controller
             ],
             'metrics' => $metrics,
         ]);
+    }
+
+    /**
+     * Mark a failed transaction as refunded by admin.
+     */
+    public function markRefunded(Transaction $transaction): JsonResponse|RedirectResponse
+    {
+        $transaction->update([
+            'payment_status' => 'REFUNDED',
+            'payment_message' => 'Dana sebesar '.$transaction->formatted_total_payment.' telah berhasil di-refund ke pelanggan oleh Admin.',
+        ]);
+
+        if (request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi '.$transaction->invoice_code.' berhasil ditandai sebagai SUDAH DI-REFUND.',
+                'transaction' => $transaction->fresh(),
+            ]);
+        }
+
+        return back()->with('success', 'Transaksi '.$transaction->invoice_code.' berhasil ditandai sebagai SUDAH DI-REFUND.');
     }
 
     /**

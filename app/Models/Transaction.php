@@ -54,6 +54,14 @@ class Transaction extends Model
         'webhook_logs' => 'array',
     ];
 
+    protected $appends = [
+        'formatted_total_payment',
+        'formatted_reseller_price',
+        'formatted_admin_fee',
+        'needs_refund',
+        'is_refunded',
+    ];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -100,6 +108,16 @@ class Transaction extends Model
         return $this->topup_status === 'FAILED';
     }
 
+    public function isRefunded(): bool
+    {
+        return $this->payment_status === 'REFUNDED';
+    }
+
+    public function needsRefund(): bool
+    {
+        return $this->isPaid() && $this->isTopupFailed();
+    }
+
     public function getFormattedTotalPaymentAttribute(): string
     {
         return 'Rp '.number_format($this->total_payment, 0, ',', '.');
@@ -113,5 +131,15 @@ class Transaction extends Model
     public function getFormattedAdminFeeAttribute(): string
     {
         return 'Rp '.number_format($this->admin_fee, 0, ',', '.');
+    }
+
+    public function getNeedsRefundAttribute(): bool
+    {
+        return $this->needsRefund();
+    }
+
+    public function getIsRefundedAttribute(): bool
+    {
+        return $this->isRefunded();
     }
 }

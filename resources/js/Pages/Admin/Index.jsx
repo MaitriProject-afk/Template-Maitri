@@ -25,8 +25,10 @@ import {
     ArrowRight,
     Copy,
     Check,
-    XCircle
+    XCircle,
+    RotateCcw
 } from 'lucide-react';
+import { router } from '@inertiajs/react';
 
 export default function AdminDashboard({ 
     auth, 
@@ -46,6 +48,38 @@ export default function AdminDashboard({
     const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
     const [refreshMsg, setRefreshMsg] = useState(null);
     const [copiedInv, setCopiedInv] = useState(null);
+    const [refundingId, setRefundingId] = useState(null);
+
+    const handleMarkRefunded = async (transactionId, invoiceCode) => {
+        if (!window.confirm(`Konfirmasi: Apakah uang untuk invoice ${invoiceCode} sudah di-refund / dikembalikan ke pelanggan?`)) {
+            return;
+        }
+
+        setRefundingId(transactionId);
+        try {
+            const response = await axios.post(`/admin/transactions/${transactionId}/mark-refunded`);
+            if (response.data && response.data.success) {
+                setRefreshMsg({
+                    type: 'success',
+                    text: response.data.message || `Invoice ${invoiceCode} berhasil ditandai SUDAH DI-REFUND!`,
+                });
+                router.reload({ only: ['stats', 'latestTransactions'] });
+            } else {
+                setRefreshMsg({
+                    type: 'error',
+                    text: response.data.message || 'Gagal mengubah status refund.',
+                });
+            }
+        } catch (error) {
+            setRefreshMsg({
+                type: 'error',
+                text: error.response?.data?.message || 'Terjadi kesalahan saat memproses status refund.',
+            });
+        } finally {
+            setRefundingId(null);
+            setTimeout(() => setRefreshMsg(null), 4000);
+        }
+    };
 
     const handleRefreshBalance = async () => {
         setIsRefreshingBalance(true);
@@ -81,6 +115,13 @@ export default function AdminDashboard({
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-500">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                         LUNAS
+                    </span>
+                );
+            case 'REFUNDED':
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-100 text-purple-900 border border-purple-500 shadow-sketch-xs">
+                        <RotateCcw className="w-3 h-3 text-purple-700" />
+                        DI-REFUND
                     </span>
                 );
             case 'UNPAID':
@@ -158,31 +199,30 @@ export default function AdminDashboard({
             <div className="space-y-6">
 
                 {/* 1. TOP WELCOME & SYSTEM BANNER */}
-                <div className="sketch-card bg-white p-5 sm:p-6 rounded-3xl border-2 border-ink shadow-sketch flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
-                    <div className="relative z-10">
+                <div className="sketch-card bg-white p-5 sm:p-6 rounded-3xl border-2 border-ink shadow-sketch flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
                         <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-brand-subtle text-brand-navy border border-ink shadow-sketch-xs">
-                                👑 AKUN: ADMINISTRATOR
+                                👑 AKUN: {user.name.toUpperCase()}
                             </span>
-                            <span className="text-xs font-mono text-ink-muted font-bold">
+                            <span className="text-xs font-mono text-emerald-600 font-bold">
                                 • Sesi Aktif
                             </span>
                         </div>
-                        <h2 className="text-xl sm:text-2xl font-black text-ink tracking-tight">
+                        <h1 className="text-xl sm:text-2xl font-black text-ink tracking-tight">
                             Selamat Datang, {user.name}! 👋
-                        </h2>
-                        <p className="text-xs sm:text-sm text-ink-muted mt-1 font-medium">
+                        </h1>
+                        <p className="text-xs sm:text-sm text-ink-muted mt-0.5 font-medium">
                             Pantau performa penjualan top-up, status server API, dan arus transaksi secara real-time.
                         </p>
                     </div>
 
-                    {/* Quick Admin Actions */}
-                    <div className="flex flex-wrap items-center gap-2.5 shrink-0 relative z-10">
+                    <div className="flex items-center gap-2 shrink-0">
                         <Link
                             href="/admin/products"
-                            className="sketch-btn px-4 py-2 bg-brand text-white font-bold text-xs rounded-xl border-2 border-ink shadow-sketch-xs flex items-center gap-1.5 hover:bg-brand-hover active:scale-95 transition-all"
+                            className="sketch-btn px-4 py-2 bg-brand text-white font-bold text-xs rounded-xl border-2 border-ink shadow-sketch-xs flex items-center gap-1.5 hover:bg-brand-hover transition-all"
                         >
-                            <PlusCircle className="w-4 h-4" />
+                            <Package className="w-4 h-4" />
                             <span>Kelola Produk</span>
                         </Link>
                         <Link
@@ -224,9 +264,15 @@ export default function AdminDashboard({
                                 <ArrowUpRight className="w-3.5 h-3.5" />
                                 <span>{stats.total_transactions_today || 0} transaksi hari ini</span>
                             </div>
+                            {stats.need_refund_count > 0 && (
+                                <div className="mt-2 p-1.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-800 text-[10px] font-bold flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                    <span>{stats.need_refund_count} gagal (Perlu Refund: {stats.formatted_need_refund_amount})</span>
+                                </div>
+                            )}
                         </div>
                         <div className="text-[10px] font-sketch text-ink-muted font-bold pt-2 border-t border-ink/10">
-                            Total pesanan dibayar
+                            Total pesanan sukses dibayar
                         </div>
                     </div>
 
@@ -245,7 +291,7 @@ export default function AdminDashboard({
                                 {stats.formatted_today_profit || 'Rp 0'}
                             </div>
                             <div className="text-[11px] font-bold text-ink-muted flex items-center gap-1 mt-0.5">
-                                <span>Margin komisi reseller</span>
+                                <span>Hanya pesanan lunas & topup sukses</span>
                             </div>
                         </div>
                         <div className="text-[10px] font-sketch text-ink-muted font-bold pt-2 border-t border-ink/10">
@@ -562,17 +608,36 @@ export default function AdminDashboard({
                                                     <div className="space-y-0.5">
                                                         {getPaymentBadge(tx.payment_status)}
                                                         {getTopupBadge(tx.topup_status)}
+                                                        {tx.needs_refund && (
+                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-600 text-white shadow-sketch-xs animate-pulse">
+                                                                ⚠️ PERLU REFUND
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="py-3 px-3 text-right">
-                                                    <Link
-                                                        href={tx.invoice_url}
-                                                        target="_blank"
-                                                        className="sketch-btn px-2 py-1 bg-brand-accent text-ink text-[11px] font-bold rounded-lg border border-ink shadow-sketch-xs inline-flex items-center gap-1"
-                                                    >
-                                                        <span>Lihat</span>
-                                                        <ExternalLink className="w-3 h-3" />
-                                                    </Link>
+                                                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                                        {tx.needs_refund && (
+                                                            <button
+                                                                type="button"
+                                                                disabled={refundingId === tx.id}
+                                                                onClick={() => handleMarkRefunded(tx.id, tx.invoice_code)}
+                                                                className="sketch-btn px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-lg border border-ink shadow-sketch-xs inline-flex items-center gap-1 disabled:opacity-50"
+                                                                title="Tandai Sudah Di-refund"
+                                                            >
+                                                                <RotateCcw className={`w-3 h-3 ${refundingId === tx.id ? 'animate-spin' : ''}`} />
+                                                                <span>{refundingId === tx.id ? '...' : 'Refund'}</span>
+                                                            </button>
+                                                        )}
+                                                        <Link
+                                                            href={tx.invoice_url}
+                                                            target="_blank"
+                                                            className="sketch-btn px-2 py-1 bg-brand-accent text-ink text-[11px] font-bold rounded-lg border border-ink shadow-sketch-xs inline-flex items-center gap-1"
+                                                        >
+                                                            <span>Lihat</span>
+                                                            <ExternalLink className="w-3 h-3" />
+                                                        </Link>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -595,13 +660,17 @@ export default function AdminDashboard({
                                 latestTransactions.map((tx) => (
                                     <div
                                         key={tx.id}
-                                        className="p-3.5 rounded-2xl border-2 border-ink bg-paper-grid shadow-sketch-xs space-y-2.5"
+                                        className={`p-3.5 rounded-2xl border-2 shadow-sketch-xs space-y-2.5 transition-all ${
+                                            tx.needs_refund 
+                                                ? 'border-rose-500 bg-rose-50/40' 
+                                                : 'border-ink bg-paper-grid'
+                                        }`}
                                     >
                                         <div className="flex items-center justify-between border-b border-ink/15 pb-2">
                                             <div className="flex items-center gap-1 font-mono font-black text-xs text-ink">
                                                 <span>{tx.invoice_code}</span>
                                                 <button 
-                                                    type="button"
+                                                    type="button" 
                                                     onClick={() => handleCopy(tx.invoice_code, `m-${tx.id}`)}
                                                     className="text-ink-muted hover:text-ink p-0.5"
                                                 >
@@ -614,6 +683,11 @@ export default function AdminDashboard({
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                             {getPaymentBadge(tx.payment_status)}
                                             {getTopupBadge(tx.topup_status)}
+                                            {tx.needs_refund && (
+                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-600 text-white shadow-sketch-xs animate-pulse">
+                                                    ⚠️ PERLU REFUND
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="text-xs">
@@ -624,6 +698,24 @@ export default function AdminDashboard({
                                                 <span className="font-bold text-ink">{tx.customer_no}</span>
                                             </div>
                                         </div>
+
+                                        {tx.needs_refund && (
+                                            <div className="p-2 rounded-xl bg-rose-100/90 border border-rose-400 text-rose-950 space-y-1.5">
+                                                <div className="text-[11px] font-bold text-rose-900 flex items-center justify-between">
+                                                    <span>Top Up Gagal — Wajib Refund:</span>
+                                                    <span className="font-mono font-black">{tx.formatted_total_payment}</span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={refundingId === tx.id}
+                                                    onClick={() => handleMarkRefunded(tx.id, tx.invoice_code)}
+                                                    className="sketch-btn w-full py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-lg border border-ink shadow-sketch-xs flex items-center justify-center gap-1"
+                                                >
+                                                    <RotateCcw className={`w-3 h-3 ${refundingId === tx.id ? 'animate-spin' : ''}`} />
+                                                    <span>{refundingId === tx.id ? 'Memproses...' : 'Tandai Sudah Di-Refund'}</span>
+                                                </button>
+                                            </div>
+                                        )}
 
                                         <div className="pt-2 border-t border-ink/15 flex items-center justify-between">
                                             <div>

@@ -30,13 +30,31 @@ class DashboardController extends Controller
         $today = Carbon::today();
 
         // 1. Revenue & Financial Summary
-        $todayRevenue = Transaction::whereDate('created_at', $today)
+        // Omset Sukses: Pembayaran Lunas DAN Pengiriman Topup Sukses
+        $todaySuccessRevenue = Transaction::whereDate('created_at', $today)
+            ->whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->where('topup_status', 'SUCCESS')
+            ->sum('total_payment');
+
+        // Total Masuk Bruto Hari Ini
+        $todayGrossRevenue = Transaction::whereDate('created_at', $today)
             ->whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
             ->sum('total_payment');
 
+        // Laba Bersih HANYA dihitung jika Pembayaran Lunas DAN Provider Sukses!
         $todayProfit = Transaction::whereDate('created_at', $today)
             ->whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->where('topup_status', 'SUCCESS')
             ->sum('commission_amount');
+
+        // Dana yang Perlu Di-Refund (Customer lunas bayar tapi provider gagal)
+        $needRefundAmount = Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->where('topup_status', 'FAILED')
+            ->sum('total_payment');
+
+        $needRefundCount = Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->where('topup_status', 'FAILED')
+            ->count();
 
         $pendingOrders = Transaction::where('payment_status', 'PAID')
             ->whereIn('topup_status', ['WAITING', 'PROCESSING', 'WAITING_PAYMENT'])
@@ -85,6 +103,8 @@ class DashboardController extends Controller
                     'is_paid' => $trx->isPaid(),
                     'is_completed' => $trx->isTopupCompleted(),
                     'is_failed' => $trx->isTopupFailed(),
+                    'is_refunded' => $trx->isRefunded(),
+                    'needs_refund' => $trx->needsRefund(),
                     'sn' => $trx->sn,
                     'time_ago' => $trx->created_at ? $trx->created_at->diffForHumans() : '-',
                     'created_at_formatted' => $trx->created_at ? $trx->created_at->translatedFormat('d M Y, H:i') : '-',
@@ -94,6 +114,7 @@ class DashboardController extends Controller
 
         // 4. Produk Terlaris (Aggregasi Transaksi Nyata atau Fallback Katalog Populer)
         $topSelling = Transaction::whereIn('payment_status', ['PAID', 'SETTLED', 'SUCCESS'])
+            ->where('topup_status', 'SUCCESS')
             ->selectRaw('product_name, count(*) as total_sales, sum(total_payment) as total_revenue')
             ->groupBy('product_name')
             ->orderByDesc('total_sales')
@@ -135,10 +156,15 @@ class DashboardController extends Controller
 
         return Inertia::render('Admin/Index', [
             'stats' => [
-                'today_revenue' => $todayRevenue,
-                'formatted_today_revenue' => 'Rp '.number_format((float) $todayRevenue, 0, ',', '.'),
+                'today_revenue' => $todaySuccessRevenue,
+                'formatted_today_revenue' => 'Rp '.number_format((float) $todaySuccessRevenue, 0, ',', '.'),
+                'today_gross_revenue' => $todayGrossRevenue,
+                'formatted_today_gross_revenue' => 'Rp '.number_format((float) $todayGrossRevenue, 0, ',', '.'),
                 'today_profit' => $todayProfit,
                 'formatted_today_profit' => 'Rp '.number_format((float) $todayProfit, 0, ',', '.'),
+                'need_refund_amount' => $needRefundAmount,
+                'formatted_need_refund_amount' => 'Rp '.number_format((float) $needRefundAmount, 0, ',', '.'),
+                'need_refund_count' => $needRefundCount,
                 'pending_orders' => $pendingOrders,
                 'total_members' => $totalMembers,
                 'new_members_today' => $newMembersToday,

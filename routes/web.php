@@ -77,6 +77,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     // Data Transaksi
     Route::get('/transactions', [TransactionController::class, 'index'])->name('admin.transactions.index');
     Route::post('/transactions/{transaction}/sync-status', [TransactionController::class, 'syncStatus'])->name('admin.transactions.sync-status');
+    Route::post('/transactions/{transaction}/mark-refunded', [TransactionController::class, 'markRefunded'])->name('admin.transactions.mark-refunded');
 
     Route::get('/settings', [SettingController::class, 'index'])->name('admin.settings');
     Route::post('/settings', [SettingController::class, 'update'])->name('admin.settings.update');
