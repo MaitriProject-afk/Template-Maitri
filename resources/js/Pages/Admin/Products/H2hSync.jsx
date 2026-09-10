@@ -461,11 +461,13 @@ export default function H2hSync({
                                                         {/* Availability Status */}
                                                         <td className="py-3.5 px-4 text-center whitespace-nowrap align-top">
                                                             <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black border uppercase tracking-wider ${
-                                                                item.status === 'AVAILABLE'
+                                                                item.is_active && item.status === 'AVAILABLE'
                                                                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                                                    : item.status === 'MAINTENANCE'
+                                                                    ? 'bg-amber-100 text-amber-800 border-amber-300'
                                                                     : 'bg-rose-100 text-rose-800 border-rose-300'
                                                             }`}>
-                                                                {item.status}
+                                                                {!item.is_active ? 'NOT AVAILABLE' : item.status}
                                                             </span>
                                                         </td>
                                                     </tr>

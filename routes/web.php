@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\H2hProductController;
 use App\Http\Controllers\Admin\ProductManageController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicCatalogController;
 use Illuminate\Http\Request;
@@ -21,6 +22,12 @@ Route::get('/product/{slug}', [PublicCatalogController::class, 'detail'])->name(
 Route::get('/produk/{slug}', function (string $slug) {
     return redirect()->route('product.detail', ['slug' => $slug]);
 });
+Route::post('/order/validate', [PublicCatalogController::class, 'validateOrder'])->name('order.validate');
+
+// Checkout & Invoice Routes
+Route::post('/checkout', [OrderController::class, 'store'])->name('checkout.store');
+Route::get('/invoice/{invoice_code}', [OrderController::class, 'show'])->name('invoice.show');
+Route::get('/invoice/{invoice_code}/status', [OrderController::class, 'status'])->name('invoice.status');
 
 Route::get('/style-guide', function () {
     return Inertia::render('StyleGuide');

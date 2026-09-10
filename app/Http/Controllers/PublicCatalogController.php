@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\H2hProduct;
 use App\Models\Product;
+use App\Models\ProductItem;
 use App\Models\SubCategory;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -40,7 +43,7 @@ class PublicCatalogController extends Controller
                     'sub_category_name' => $prod->subCategory?->name,
                     'brand' => $prod->brand ?? $prod->name,
                     'thumbnail' => $prod->thumbnail,
-                    'tagline' => $prod->description ? substr(strip_tags($prod->description), 0, 60).'...' : 'Proses 1-3 detik otomatis',
+                    'tagline' => $prod->description ? Str::limit(strip_tags($prod->description), 60) : 'Proses 1-3 detik otomatis',
                     'min_price' => $minPrice,
                     'formatted_min_price' => 'Rp '.number_format($minPrice, 0, ',', '.'),
                     'items_count' => $prod->activeItems->count(),
@@ -92,7 +95,7 @@ class PublicCatalogController extends Controller
                     'sub_category_name' => $prod->subCategory?->name,
                     'brand' => $prod->brand ?? $prod->name,
                     'thumbnail' => $prod->thumbnail,
-                    'tagline' => $prod->description ? substr(strip_tags($prod->description), 0, 60).'...' : 'Proses 1-3 detik otomatis',
+                    'tagline' => $prod->description ? Str::limit(strip_tags($prod->description), 60) : 'Proses 1-3 detik otomatis',
                     'min_price' => $minPrice,
                     'formatted_min_price' => 'Rp '.number_format($minPrice, 0, ',', '.'),
                     'items_count' => $prod->activeItems->count(),
@@ -114,14 +117,14 @@ class PublicCatalogController extends Controller
         $product = Product::with([
             'category:id,name,slug',
             'subCategory:id,name,slug',
-            'activeItems',
+            'items', // Load all items so inactive / cut-off / disrupted items remain visible as disabled
         ])
             ->where('slug', $slug)
             ->where('is_active', true)
             ->firstOrFail();
 
         // Extract unique groups/tabs for denominations
-        $groupNames = $product->activeItems
+        $groupNames = $product->items
             ->pluck('category_group')
             ->filter()
             ->unique()
@@ -134,7 +137,27 @@ class PublicCatalogController extends Controller
             array_unshift($groupNames, 'Semua');
         }
 
-        $items = $product->activeItems->map(function ($item) {
+        $items = $product->items->map(function ($item) {
+            $isCutOff = $item->isCutOff();
+            $canPurchase = $item->canPurchase();
+            $disabledReason = $item->getDisabledReason();
+
+            $badge = null;
+            $badgeType = 'default';
+
+            if ($isCutOff) {
+                $start = ProductItem::normalizeTime($item->start_cut_off) ?? $item->start_cut_off;
+                $end = ProductItem::normalizeTime($item->end_cut_off) ?? $item->end_cut_off;
+                $badge = "Cut Off ({$start} - {$end} WIB)";
+                $badgeType = 'cutoff';
+            } elseif (! $item->is_active || $item->status !== 'AVAILABLE') {
+                $badge = 'Sedang Gangguan';
+                $badgeType = 'danger';
+            } elseif (! $item->unlimited_stock && $item->stock <= 0) {
+                $badge = 'Stok Habis';
+                $badgeType = 'warning';
+            }
+
             return [
                 'id' => $item->id,
                 'buyer_sku_code' => $item->buyer_sku_code,
@@ -145,9 +168,16 @@ class PublicCatalogController extends Controller
                 'formatted_price' => 'Rp '.number_format($item->price, 0, ',', '.'),
                 'h2h_price' => $item->h2h_price,
                 'status' => $item->status,
+                'is_active' => (bool) $item->is_active,
                 'desc' => $item->desc,
                 'start_cut_off' => $item->start_cut_off,
                 'end_cut_off' => $item->end_cut_off,
+                'is_cut_off' => $isCutOff,
+                'can_purchase' => $canPurchase,
+                'is_available' => $canPurchase,
+                'disabled_reason' => $disabledReason,
+                'badge' => $badge,
+                'badge_type' => $badgeType,
             ];
         });
 
@@ -179,6 +209,62 @@ class PublicCatalogController extends Controller
         return Inertia::render('Product/Detail', [
             'slug' => $slug,
             'product' => $productPayload,
+        ]);
+    }
+
+    /**
+     * Strictly validate order selection on backend (guards against cut-off, inactive, and disrupted H2H items).
+     */
+    public function validateOrder(Request $request)
+    {
+        $request->validate([
+            'item_id' => 'required|integer',
+            'target_input' => 'required|string',
+        ]);
+
+        $item = ProductItem::with('product')->find($request->item_id);
+
+        if (! $item) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Item produk yang dipilih tidak ditemukan dalam sistem.',
+            ], 404);
+        }
+
+        if (! $item->product || ! $item->product->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Layanan produk ini sedang tidak aktif atau dinonaktifkan.',
+            ], 422);
+        }
+
+        if (! $item->canPurchase()) {
+            return response()->json([
+                'success' => false,
+                'message' => $item->getDisabledReason() ?? 'Produk tidak dapat dipesan saat ini.',
+            ], 422);
+        }
+
+        // Periksa apakah item terhubung dengan SKU provider dan apakah provider aktif
+        if ($item->buyer_sku_code) {
+            $h2h = H2hProduct::where('buyer_sku_code', $item->buyer_sku_code)->first();
+            if (! $h2h || ! $h2h->is_active || $h2h->status !== 'AVAILABLE') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Produk ini sedang mengalami gangguan dari provider pusat dan tidak dapat diproses saat ini.',
+                ], 422);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Item produk valid dan siap diproses.',
+            'item' => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'price' => $item->price,
+                'formatted_price' => $item->formatted_price,
+            ],
         ]);
     }
 }

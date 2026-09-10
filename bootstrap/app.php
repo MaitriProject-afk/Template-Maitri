@@ -21,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+            'h2h/*',
+        ]);
+
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
         ]);

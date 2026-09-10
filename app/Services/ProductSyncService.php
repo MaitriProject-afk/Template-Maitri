@@ -220,15 +220,43 @@ class ProductSyncService
                             'unlimited_stock',
                             'stock',
                             'multi',
+                            'is_active',
                             'synced_at',
                             'updated_at',
                         ]
                     );
                 }
 
-                // Update matching ProductItem records with updated h2h prices and statuses
                 $skuMap = collect($records)->keyBy('buyer_sku_code');
-                $itemsToUpdate = ProductItem::whereIn('buyer_sku_code', $skuMap->keys())->get();
+                $incomingSkus = $skuMap->keys()->all();
+
+                // 1. Tangani produk yang TIDAK ADA lagi di respon provider (misal dihapus dari Maitri)
+                // Ubah statusnya menjadi EMPTY / tidak tersedia dan nonaktifkan agar aman dari transaksi gagal
+                $missingH2hQuery = H2hProduct::whereNotIn('buyer_sku_code', $incomingSkus);
+                $missingCount = (clone $missingH2hQuery)->where(function ($q) {
+                    $q->where('is_active', true)->orWhere('status', '!=', 'EMPTY');
+                })->count();
+
+                if ($missingCount > 0) {
+                    $missingH2hQuery->update([
+                        'status' => 'EMPTY',
+                        'is_active' => false,
+                        'updated_at' => $now,
+                    ]);
+
+                    // Otomatis nonaktifkan juga item produk di katalog toko
+                    ProductItem::whereNotIn('buyer_sku_code', $incomingSkus)
+                        ->whereNotNull('buyer_sku_code')
+                        ->where('buyer_sku_code', '!=', '')
+                        ->update([
+                            'status' => 'EMPTY',
+                            'is_active' => false,
+                        ]);
+                }
+
+                // 2. Update ProductItem yang aktif / masuk dalam sync respon provider
+                // Jika produk ini sebelumnya sempat dinonaktifkan lalu ada kembali di Maitri, otomatis diaktifkan kembali!
+                $itemsToUpdate = ProductItem::whereIn('buyer_sku_code', $incomingSkus)->get();
 
                 foreach ($itemsToUpdate as $productItem) {
                     $raw = $skuMap->get($productItem->buyer_sku_code);
@@ -236,6 +264,7 @@ class ProductSyncService
                         $newH2hPrice = $raw['h2h_price'];
                         $productItem->h2h_price = $newH2hPrice;
                         $productItem->status = $raw['status'];
+                        $productItem->is_active = true; // Aktifkan kembali jika ada di respon sync
                         $productItem->start_cut_off = $raw['start_cut_off'];
                         $productItem->end_cut_off = $raw['end_cut_off'];
                         $productItem->desc = $raw['desc'];
@@ -256,6 +285,9 @@ class ProductSyncService
 
             $totalCount = count($records);
             $message = "Berhasil mensinkronkan {$totalCount} produk ({$addedCount} produk baru ditambahkan, {$updatedCount} produk diperbarui).";
+            if (isset($missingCount) && $missingCount > 0) {
+                $message .= " Sebanyak {$missingCount} produk tidak lagi ditemukan di provider dan otomatis dinonaktifkan (EMPTY).";
+            }
 
             $log = ProductSyncLog::create([
                 'status' => 'SUCCESS',

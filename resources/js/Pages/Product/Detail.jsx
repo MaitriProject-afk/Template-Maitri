@@ -24,7 +24,8 @@ import {
     ExternalLink,
     Gamepad2,
     PackageOpen,
-    User
+    User,
+    RefreshCw
 } from 'lucide-react';
 
 export default function ProductDetail({ slug, product: initialProduct, auth }) {
@@ -61,6 +62,7 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
 
     // Modal & Invoice states
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [isSubmittingCheckout, setIsSubmittingCheckout] = useState(false);
     const [isQrisModalOpen, setIsQrisModalOpen] = useState(false);
     const [invoiceCode, setInvoiceCode] = useState('');
     const [countdownSeconds, setCountdownSeconds] = useState(900); // 15 minutes
@@ -116,8 +118,10 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
         }
     };
 
-    // Form validation before checkout
-    const handleCheckoutClick = () => {
+    const [isValidating, setIsValidating] = useState(false);
+
+    // Form validation before checkout (strict client & backend validation)
+    const handleCheckoutClick = async () => {
         if (!targetInput.trim()) {
             const labelName = product.inputType === 'single_id' ? 'User ID akun Anda' : (product.inputLabel || 'target tujuan');
             alert(`Silakan masukkan ${labelName}.`);
@@ -127,20 +131,58 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
             alert('Silakan pilih nominal top-up yang Anda inginkan.');
             return;
         }
+        if (selectedItem.can_purchase === false) {
+            alert(selectedItem.disabled_reason || 'Nominal yang Anda pilih sedang gangguan atau dalam masa cut-off.');
+            return;
+        }
         if (!whatsapp.trim()) {
             alert('Silakan masukkan nomor WhatsApp untuk notifikasi dan bukti transaksi.');
             return;
         }
-        setIsConfirmModalOpen(true);
+
+        // Strict Backend Validation against Cut-Off and H2H Disruption
+        try {
+            setIsValidating(true);
+            const res = await window.axios.post(route('order.validate'), {
+                item_id: selectedItem.id,
+                target_input: targetInput,
+            });
+
+            if (res.data?.success) {
+                setIsConfirmModalOpen(true);
+            }
+        } catch (err) {
+            const errMsg = err.response?.data?.message || 'Nominal produk ini sedang gangguan atau dalam masa cut-off dan tidak dapat diproses.';
+            alert(`Tidak dapat memproses pesanan:\n\n${errMsg}`);
+        } finally {
+            setIsValidating(false);
+        }
     };
 
-    // Confirm order & trigger QRIS payment
+    // Confirm order & trigger QRIS payment via H2H API
     const handleConfirmOrder = () => {
-        setIsConfirmModalOpen(false);
-        const newInvoice = 'INV-' + new Date().getFullYear() + String(Math.floor(100000 + Math.random() * 900000));
-        setInvoiceCode(newInvoice);
-        setCountdownSeconds(900);
-        setIsQrisModalOpen(true);
+        if (!selectedItem) {
+            alert('Silakan pilih produk item terlebih dahulu.');
+            return;
+        }
+
+        setIsSubmittingCheckout(true);
+        router.post(route('checkout.store'), {
+            item_id: selectedItem.id,
+            target_input: targetInput,
+            zone_id: zoneInput || null,
+            whatsapp: whatsapp || null,
+            payment_method: 'qris',
+        }, {
+            onError: (errors) => {
+                setIsSubmittingCheckout(false);
+                const errMsg = errors.checkout || Object.values(errors)[0] || 'Terjadi kesalahan saat memproses checkout.';
+                alert(`Gagal Memproses Transaksi:\n\n${errMsg}`);
+            },
+            onFinish: () => {
+                setIsSubmittingCheckout(false);
+            }
+        });
     };
 
     // Visual helper for product logo
@@ -245,9 +287,22 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
             <button
                 type="button"
                 onClick={handleCheckoutClick}
-                className="sketch-btn px-3.5 py-2 bg-brand hover:bg-brand-hover text-white font-black text-xs rounded-full border-2 border-ink shadow-sketch-xs flex items-center gap-1 shrink-0 z-20 active:scale-95 transition-all"
+                disabled={isValidating || (selectedItem && selectedItem.can_purchase === false)}
+                className={`sketch-btn px-3.5 py-2 font-black text-xs rounded-full border-2 border-ink shadow-sketch-xs flex items-center gap-1 shrink-0 z-20 transition-all ${
+                    selectedItem && selectedItem.can_purchase === false
+                        ? 'bg-paper-dark text-ink-muted border-ink/30 cursor-not-allowed opacity-70'
+                        : isValidating
+                        ? 'bg-brand/80 text-white cursor-wait opacity-80'
+                        : 'bg-brand hover:bg-brand-hover text-white active:scale-95'
+                }`}
             >
-                <span>Beli Sekarang</span>
+                <span>
+                    {isValidating 
+                        ? 'Memeriksa...' 
+                        : selectedItem && selectedItem.can_purchase === false 
+                        ? 'Tidak Tersedia' 
+                        : 'Beli Sekarang'}
+                </span>
                 <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
         </div>
@@ -539,48 +594,96 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-3.5">
                                     {filteredItems.map((item) => {
                                         const isSelected = selectedItem?.id === item.id;
+                                        const isAvailable = item.can_purchase !== false && item.is_available !== false;
+                                        const isCutOff = item.is_cut_off;
+
                                         return (
                                             <button
                                                 key={item.id}
                                                 type="button"
-                                                onClick={() => setSelectedItem(item)}
-                                                className={`p-3 sm:p-3.5 rounded-2xl border-2 border-ink text-left transition-all relative flex flex-col justify-between group active:scale-98 ${
-                                                    isSelected
-                                                        ? 'bg-brand-subtle border-brand ring-2 ring-brand shadow-sketch-xs font-bold scale-[1.02]'
-                                                        : 'bg-white hover:border-brand hover:bg-brand-subtle/20 shadow-sketch-xs'
+                                                disabled={!isAvailable}
+                                                onClick={() => {
+                                                    if (!isAvailable) {
+                                                        alert(item.disabled_reason || 'Item ini sedang tidak dapat dipilih.');
+                                                        return;
+                                                    }
+                                                    setSelectedItem(item);
+                                                }}
+                                                className={`p-3 sm:p-3.5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between group ${
+                                                    !isAvailable
+                                                        ? 'bg-paper-dark/70 border-ink/30 opacity-75 cursor-not-allowed select-none'
+                                                        : isSelected
+                                                        ? 'bg-brand-subtle border-brand ring-2 ring-brand shadow-sketch-xs font-bold scale-[1.02] active:scale-98'
+                                                        : 'bg-white hover:border-brand hover:bg-brand-subtle/20 shadow-sketch-xs active:scale-98'
                                                 }`}
+                                                title={!isAvailable ? (item.disabled_reason || 'Tidak dapat dipilih saat ini') : ''}
                                             >
-                                                {/* Item Badge */}
-                                                {item.badge && (
-                                                    <div className="mb-1.5">
-                                                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border font-bold ${
-                                                            isSelected 
-                                                                ? 'bg-brand text-white border-brand' 
+                                                {/* Item Badge & Status Warning */}
+                                                <div className="mb-1.5 flex flex-wrap items-center gap-1">
+                                                    {item.badge ? (
+                                                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border font-bold flex items-center gap-1 ${
+                                                            item.badge_type === 'cutoff'
+                                                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                                                : item.badge_type === 'danger'
+                                                                ? 'bg-rose-100 text-rose-900 border-rose-300'
+                                                                : item.badge_type === 'warning'
+                                                                ? 'bg-zinc-200 text-zinc-800 border-zinc-400'
+                                                                : isSelected
+                                                                ? 'bg-brand text-white border-brand'
                                                                 : 'bg-paper-dark text-ink border-ink'
                                                         }`}>
-                                                            {item.badge}
+                                                            {item.badge_type === 'cutoff' && <Clock className="w-2.5 h-2.5 shrink-0" />}
+                                                            {item.badge_type === 'danger' && <AlertCircle className="w-2.5 h-2.5 shrink-0" />}
+                                                            <span>{item.badge}</span>
                                                         </span>
-                                                    </div>
-                                                )}
+                                                    ) : isSelected ? (
+                                                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border font-bold bg-brand text-white border-brand">
+                                                            PILIHAN ANDA
+                                                        </span>
+                                                    ) : null}
+                                                </div>
 
                                                 <div>
-                                                    <p className="text-xs sm:text-sm font-black text-ink leading-snug line-clamp-2 group-hover:text-brand transition-colors">
+                                                    <p className={`text-xs sm:text-sm font-black leading-snug line-clamp-2 transition-colors ${
+                                                        !isAvailable
+                                                            ? 'text-ink-muted'
+                                                            : 'text-ink group-hover:text-brand'
+                                                    }`}>
                                                         {item.name}
                                                     </p>
-                                                    <p className="text-xs sm:text-sm font-black font-mono text-brand mt-1.5">
+                                                    <p className={`text-xs sm:text-sm font-black font-mono mt-1.5 ${
+                                                        !isAvailable ? 'text-ink-muted line-through opacity-70' : 'text-brand'
+                                                    }`}>
                                                         {formatRp(item.price)}
                                                     </p>
                                                 </div>
 
-                                                {/* Selection Check Circle */}
+                                                {/* Bottom Selection Status */}
                                                 <div className="mt-2 pt-2 border-t border-ink/10 flex items-center justify-between">
-                                                    <span className="text-[10px] font-sketch text-ink-muted">
-                                                        ⚡ Proses Kilat
-                                                    </span>
+                                                    {!isAvailable ? (
+                                                        <span className={`text-[10px] font-mono font-bold flex items-center gap-1 ${
+                                                            isCutOff ? 'text-amber-700' : 'text-rose-600'
+                                                        }`}>
+                                                            {isCutOff ? '⏳ Sedang Cut Off' : '⚠️ Gangguan'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-sketch text-ink-muted">
+                                                            ⚡ Proses Kilat
+                                                        </span>
+                                                    )}
+
                                                     <div className={`w-4 h-4 rounded-full border-2 border-ink flex items-center justify-center ${
-                                                        isSelected ? 'bg-brand text-white' : 'bg-white'
+                                                        !isAvailable
+                                                            ? 'bg-paper-dark text-ink-muted border-ink/40'
+                                                            : isSelected
+                                                            ? 'bg-brand text-white'
+                                                            : 'bg-white'
                                                     }`}>
-                                                        {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                                        {!isAvailable ? (
+                                                            <Lock className="w-2.5 h-2.5 text-ink-muted" />
+                                                        ) : isSelected ? (
+                                                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             </button>
@@ -789,10 +892,23 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                                 <button
                                     type="button"
                                     onClick={handleCheckoutClick}
-                                    className="sketch-btn w-full py-3.5 sm:py-4 px-6 bg-brand text-white font-black text-sm sm:text-base rounded-2xl border-2 border-ink shadow-sketch hover:bg-brand-hover active:translate-y-0.5 active:shadow-none transition-all flex items-center justify-center gap-2"
+                                    disabled={isValidating || (selectedItem && selectedItem.can_purchase === false)}
+                                    className={`sketch-btn w-full py-3.5 sm:py-4 px-6 font-black text-sm sm:text-base rounded-2xl border-2 border-ink shadow-sketch transition-all flex items-center justify-center gap-2 ${
+                                        selectedItem && selectedItem.can_purchase === false
+                                            ? 'bg-paper-dark text-ink-muted border-ink/30 cursor-not-allowed opacity-70 shadow-none'
+                                            : isValidating
+                                            ? 'bg-brand/80 text-white cursor-wait opacity-80'
+                                            : 'bg-brand text-white hover:bg-brand-hover active:translate-y-0.5 active:shadow-none'
+                                    }`}
                                 >
-                                    <Zap className="w-5 h-5 fill-white" />
-                                    <span>Beli Sekarang ({formatRp(totalPrice)})</span>
+                                    <Zap className="w-5 h-5 fill-current" />
+                                    <span>
+                                        {isValidating
+                                            ? 'Memeriksa Ketersediaan...'
+                                            : selectedItem && selectedItem.can_purchase === false
+                                            ? (selectedItem.is_cut_off ? 'Item Sedang Cut Off' : 'Item Sedang Gangguan')
+                                            : `Beli Sekarang (${formatRp(totalPrice)})`}
+                                    </span>
                                 </button>
                                 <p className="text-[11px] text-center text-ink-muted mt-2 font-mono">
                                     🛡️ 100% Bergaransi Resmi • Proses Kilat 1–3 Detik
@@ -859,136 +975,18 @@ export default function ProductDetail({ slug, product: initialProduct, auth }) {
                             </button>
                             <button
                                 type="button"
+                                disabled={isSubmittingCheckout}
                                 onClick={handleConfirmOrder}
-                                className="sketch-btn flex-1 py-2.5 bg-brand text-white text-xs font-black rounded-xl border-2 border-ink shadow-sketch hover:bg-brand-hover"
+                                className="sketch-btn flex-1 py-2.5 bg-brand text-white text-xs font-black rounded-xl border-2 border-ink shadow-sketch hover:bg-brand-hover disabled:opacity-60 flex items-center justify-center gap-1.5"
                             >
-                                Lanjut Bayar →
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* QRIS PAYMENT INVOICE DIALOG MODAL */}
-            {isQrisModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/75 backdrop-blur-xs overflow-y-auto">
-                    <div className="w-full max-w-lg bg-white rounded-3xl border-2 border-ink shadow-sketch p-6 sm:p-7 relative my-8 animate-in fade-in zoom-in-95 duration-200 text-center">
-                        
-                        {/* Header Tag */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-subtle text-brand-navy border border-ink text-xs font-mono font-bold mb-2">
-                            <Clock className="w-3.5 h-3.5" /> Selesaikan dalam: {formattedTimer}
-                        </div>
-
-                        <h3 className="text-2xl font-black text-ink">
-                            Bayar dengan QRIS
-                        </h3>
-                        <p className="text-xs text-ink-muted mt-1">
-                            Scan kode QR di bawah menggunakan aplikasi E-Wallet atau Mobile Banking Anda.
-                        </p>
-
-                        {/* Invoice & Total Box */}
-                        <div className="mt-4 p-3.5 rounded-2xl bg-paper-grid border-2 border-ink/30 text-left space-y-1.5 text-xs">
-                            <div className="flex justify-between items-center">
-                                <span className="text-ink-muted">Kode Invoice:</span>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="font-mono font-bold text-ink">{invoiceCode}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(invoiceCode);
-                                            setCopiedInvoice(true);
-                                            setTimeout(() => setCopiedInvoice(false), 1500);
-                                        }}
-                                        className="text-[10px] px-1.5 py-0.5 rounded bg-white border border-ink font-bold hover:bg-brand-subtle"
-                                    >
-                                        {copiedInvoice ? 'Disalin!' : 'Salin'}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-ink-muted">Total Tagihan:</span>
-                                <span className="font-mono font-black text-brand text-base">{formatRp(totalPrice)}</span>
-                            </div>
-                        </div>
-
-                        {/* QR Code Frame */}
-                        <div className="my-5 p-4 bg-white border-2 border-ink rounded-2xl shadow-sketch inline-block max-w-xs mx-auto">
-                            {/* QRIS Header Logo text */}
-                            <div className="flex items-center justify-between pb-2 mb-2 border-b-2 border-ink text-xs font-black font-mono">
-                                <span className="text-brand">QRIS</span>
-                                <span className="text-[9px] bg-ink text-white px-1.5 py-0.5 rounded">PASAR RESMI</span>
-                            </div>
-
-                            {/* Stylized QR Code Graphic */}
-                            <div className="w-56 h-56 bg-paper-dark border-2 border-ink rounded-xl flex items-center justify-center p-3 relative overflow-hidden">
-                                <svg viewBox="0 0 100 100" className="w-full h-full text-ink">
-                                    {/* Corner finder patterns */}
-                                    <rect x="5" y="5" width="26" height="26" fill="currentColor" rx="4" />
-                                    <rect x="9" y="9" width="18" height="18" fill="white" rx="2" />
-                                    <rect x="13" y="13" width="10" height="10" fill="currentColor" rx="1" />
-
-                                    <rect x="69" y="5" width="26" height="26" fill="currentColor" rx="4" />
-                                    <rect x="73" y="9" width="18" height="18" fill="white" rx="2" />
-                                    <rect x="77" y="13" width="10" height="10" fill="currentColor" rx="1" />
-
-                                    <rect x="5" y="69" width="26" height="26" fill="currentColor" rx="4" />
-                                    <rect x="9" y="73" width="18" height="18" fill="white" rx="2" />
-                                    <rect x="13" y="77" width="10" height="10" fill="currentColor" rx="1" />
-
-                                    {/* Grid Matrix pattern dots */}
-                                    <rect x="36" y="8" width="6" height="6" fill="currentColor" />
-                                    <rect x="46" y="8" width="6" height="6" fill="currentColor" />
-                                    <rect x="56" y="8" width="6" height="6" fill="currentColor" />
-                                    <rect x="36" y="18" width="6" height="6" fill="currentColor" />
-                                    <rect x="56" y="18" width="6" height="6" fill="currentColor" />
-                                    <rect x="46" y="28" width="6" height="6" fill="currentColor" />
-                                    
-                                    <rect x="8" y="36" width="6" height="6" fill="currentColor" />
-                                    <rect x="18" y="36" width="6" height="6" fill="currentColor" />
-                                    <rect x="28" y="36" width="6" height="6" fill="currentColor" />
-                                    <rect x="36" y="36" width="28" height="28" fill="#2563eb" rx="4" />
-                                    <rect x="46" y="46" width="8" height="8" fill="white" rx="1" />
-                                    
-                                    <rect x="68" y="36" width="6" height="6" fill="currentColor" />
-                                    <rect x="78" y="36" width="6" height="6" fill="currentColor" />
-                                    <rect x="88" y="36" width="6" height="6" fill="currentColor" />
-
-                                    <rect x="36" y="68" width="6" height="6" fill="currentColor" />
-                                    <rect x="46" y="78" width="6" height="6" fill="currentColor" />
-                                    <rect x="56" y="68" width="6" height="6" fill="currentColor" />
-                                    <rect x="68" y="68" width="6" height="6" fill="currentColor" />
-                                    <rect x="78" y="78" width="6" height="6" fill="currentColor" />
-                                    <rect x="88" y="88" width="6" height="6" fill="currentColor" />
-                                </svg>
-                            </div>
-
-                            <p className="text-[10px] font-mono font-bold text-ink mt-2">
-                                NMID: ID10200391823910
-                            </p>
-                        </div>
-
-                        {/* Supported Logos note */}
-                        <p className="text-[11px] text-ink-muted">
-                            Dukung: BCA, Mandiri, BRI, BNI, DANA, OVO, GoPay, ShopeePay, LinkAja & QRIS Bank Lainnya.
-                        </p>
-
-                        {/* Modal Action Buttons */}
-                        <div className="mt-5 flex flex-col sm:flex-row gap-2.5">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    alert('Status Pembayaran: Menunggu pembayaran QRIS dari sistem perbankan. Silakan selesaikan scan.');
-                                }}
-                                className="sketch-btn flex-1 py-2.5 bg-brand text-white text-xs font-black rounded-xl border-2 border-ink shadow-sketch hover:bg-brand-hover"
-                            >
-                                ⚡ Cek Status Pembayaran
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setIsQrisModalOpen(false)}
-                                className="sketch-btn py-2.5 px-4 bg-white text-ink text-xs font-bold rounded-xl border-2 border-ink shadow-sketch-xs hover:bg-paper-dark"
-                            >
-                                Tutup
+                                {isSubmittingCheckout ? (
+                                    <>
+                                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                        Memproses QRIS...
+                                    </>
+                                ) : (
+                                    'Lanjut Bayar →'
+                                )}
                             </button>
                         </div>
                     </div>

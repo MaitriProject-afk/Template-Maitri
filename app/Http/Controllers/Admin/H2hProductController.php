@@ -55,9 +55,9 @@ class H2hProductController extends Controller
         $cronUrl = url("/api/cron/sync-products?token={$cronToken}");
 
         $stats = [
-            'total_products' => H2hProduct::count(),
-            'available_products' => H2hProduct::where('status', 'AVAILABLE')->count(),
-            'total_brands' => H2hProduct::distinct('brand')->count('brand'),
+            'total_products' => H2hProduct::where('is_active', true)->count(),
+            'available_products' => H2hProduct::where('status', 'AVAILABLE')->where('is_active', true)->count(),
+            'total_brands' => H2hProduct::where('is_active', true)->distinct('brand')->count('brand'),
             'last_synced_at' => H2hProduct::max('synced_at'),
         ];
 
