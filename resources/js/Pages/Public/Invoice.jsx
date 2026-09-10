@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-export default function Invoice({ transaction: initialTransaction, adminPhone }) {
+export default function Invoice({ auth, transaction: initialTransaction, adminPhone }) {
     const [trx, setTrx] = useState(initialTransaction);
     const [copiedField, setCopiedField] = useState(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -170,7 +170,7 @@ export default function Invoice({ transaction: initialTransaction, adminPhone })
     const waChatUrl = `https://wa.me/${whatsappClean}?text=${complaintMessage}`;
 
     return (
-        <MainLayout>
+        <MainLayout auth={auth}>
             <Head title={`Invoice #${trx.invoice_code} - Maitri Top Up`} />
 
             <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10">

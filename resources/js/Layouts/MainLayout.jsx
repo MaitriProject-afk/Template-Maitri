@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import Navbar from '../Components/Navbar';
 import Footer from '../Components/Footer';
 import BottomNav from '../Components/BottomNav';
@@ -25,6 +25,9 @@ export default function MainLayout({
     setIsTrackerOpen: externalSetIsTrackerOpen,
     stickyBar = null,
 }) {
+    const pageProps = usePage()?.props || {};
+    const effectiveAuth = auth || pageProps.auth;
+
     const [internalTrackerOpen, setInternalTrackerOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -67,7 +70,7 @@ export default function MainLayout({
                     onSearchChange={onSearchChange}
                     onOpenSearch={() => setIsSearchOpen(true)}
                     onOpenTracking={() => setIsTrackingOpen(true)}
-                    auth={auth}
+                    auth={effectiveAuth}
                     activeTab={activeTab}
                 />
 
@@ -84,7 +87,7 @@ export default function MainLayout({
                     activeTab={activeTab}
                     onTabChange={handleMobileTabChange}
                     onOpenSearch={() => setIsSearchOpen(true)}
-                    auth={auth}
+                    auth={effectiveAuth}
                     stickyBar={stickyBar}
                 />
 
