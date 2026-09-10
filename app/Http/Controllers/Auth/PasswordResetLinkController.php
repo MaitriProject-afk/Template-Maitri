@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ResetPasswordOtpNotification;
+use App\Models\PasswordResetCode;
+use App\Models\SiteSetting;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,39 +18,127 @@ use Inertia\Response;
 class PasswordResetLinkController extends Controller
 {
     /**
-     * Display the password reset link request view.
+     * Display the password reset request view.
      */
     public function create(): Response
     {
         return Inertia::render('Auth/ForgotPassword', [
             'status' => session('status'),
+            'sessionEmail' => session('reset_email'),
+            'sessionStep' => session('reset_step', 1),
+            'sessionToken' => session('reset_token'),
         ]);
     }
 
     /**
-     * Handle an incoming password reset link request.
+     * Handle sending a 6-digit OTP verification code to the user's email.
      *
      * @throws ValidationException
      */
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|email|max:255',
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        $ipThrottleKey = 'send-reset-otp:ip:'.$request->ip();
+        $emailThrottleKey = 'send-reset-otp:email:'.strtolower($request->email);
 
-        if ($status == Password::RESET_LINK_SENT) {
-            return back()->with('status', __($status));
+        if (RateLimiter::tooManyAttempts($ipThrottleKey, 5) || RateLimiter::tooManyAttempts($emailThrottleKey, 5)) {
+            $seconds = max(
+                RateLimiter::availableIn($ipThrottleKey),
+                RateLimiter::availableIn($emailThrottleKey)
+            );
+
+            throw ValidationException::withMessages([
+                'email' => "Terlalu banyak permintaan reset kata sandi. Silakan tunggu {$seconds} detik lagi sebelum mencoba kembali.",
+            ]);
         }
 
-        throw ValidationException::withMessages([
-            'email' => [trans($status)],
+        RateLimiter::hit($ipThrottleKey, 600); // 10 minutes window
+        RateLimiter::hit($emailThrottleKey, 600);
+
+        $user = User::where('email', $request->email)->first();
+
+        if ($user) {
+            $otp = PasswordResetCode::generateCode($user->email);
+
+            SiteSetting::applyMailConfig();
+
+            try {
+                Mail::to($user->email)->send(new ResetPasswordOtpNotification(
+                    userName: $user->name,
+                    otpCode: $otp,
+                    expiresInMinutes: 15
+                ));
+            } catch (\Throwable $e) {
+                // If mail driver fails, notify user gracefully
+                report($e);
+            }
+        }
+
+        return back()
+            ->with('status', 'Jika alamat email terdaftar, kode verifikasi 6-digit telah dikirimkan ke kotak masuk Anda.')
+            ->with('reset_email', $request->email)
+            ->with('reset_step', 2);
+    }
+
+    /**
+     * Verify the 6-digit OTP code submitted by the user.
+     *
+     * @throws ValidationException
+     */
+    public function verifyCode(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'email' => 'required|email|max:255',
+            'code' => 'required|string|size:6',
         ]);
+
+        $throttleKey = 'verify-reset-otp:ip:'.$request->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 15)) {
+            throw ValidationException::withMessages([
+                'code' => 'Terlalu banyak percobaan verifikasi yang gagal dari perangkat ini. Harap tunggu beberapa menit.',
+            ]);
+        }
+
+        RateLimiter::hit($throttleKey, 300);
+
+        $result = PasswordResetCode::verifyCode($request->email, $request->code);
+
+        if (! $result['valid']) {
+            throw ValidationException::withMessages([
+                'code' => $result['message'] ?? 'Kode verifikasi tidak sesuai.',
+            ]);
+        }
+
+        // Successfully verified -> Issue one-time reset token and advance to Step 3
+        return back()
+            ->with('status', 'Kode verifikasi berhasil dikonfirmasi! Silakan buat kata sandi baru Anda.')
+            ->with('reset_email', $request->email)
+            ->with('reset_token', $result['reset_token'])
+            ->with('reset_step', 3);
+    }
+
+    /**
+     * Resend the 6-digit OTP code to the email.
+     */
+    public function resendCode(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'email' => 'required|email|max:255',
+        ]);
+
+        $resendCooldownKey = 'resend-reset-otp:'.strtolower($request->email);
+        if (RateLimiter::tooManyAttempts($resendCooldownKey, 1)) {
+            $seconds = RateLimiter::availableIn($resendCooldownKey);
+            throw ValidationException::withMessages([
+                'code' => "Mohon tunggu {$seconds} detik lagi sebelum meminta kirim ulang kode.",
+            ]);
+        }
+
+        RateLimiter::hit($resendCooldownKey, 60); // 60 seconds cooldown
+
+        return $this->store($request);
     }
 }

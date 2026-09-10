@@ -1,11 +1,20 @@
+import React, { useState } from 'react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import MainLayout from '@/Layouts/MainLayout';
 import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
-import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, useForm } from '@inertiajs/react';
+import { 
+    Lock, 
+    Eye, 
+    EyeOff, 
+    ShieldCheck, 
+    Check, 
+    Mail 
+} from 'lucide-react';
 
-export default function ResetPassword({ token, email }) {
+export default function ResetPassword({ token, email, auth }) {
+    const { site } = usePage().props;
+    const siteName = site?.site_name || 'Maitri Project';
+
     const { data, setData, post, processing, errors, reset } = useForm({
         token: token,
         email: email,
@@ -13,82 +22,127 @@ export default function ResetPassword({ token, email }) {
         password_confirmation: '',
     });
 
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     const submit = (e) => {
         e.preventDefault();
-
         post(route('password.store'), {
             onFinish: () => reset('password', 'password_confirmation'),
         });
     };
 
     return (
-        <GuestLayout>
-            <Head title="Reset Password" />
+        <MainLayout
+            auth={auth}
+            title={`Buat Kata Sandi Baru — ${siteName}`}
+            description={`Buat kata sandi baru untuk akun ${siteName} Anda.`}
+            activeTab="profil"
+        >
+            <div className="max-w-md mx-auto px-4 py-8 sm:py-16">
+                <div className="sketch-card bg-white p-6 sm:p-8 rounded-3xl border-2 border-ink shadow-sketch space-y-6">
+                    <div>
+                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-sketch-yellow text-ink border border-ink shadow-sketch-xs">
+                            LANGKAH TERAKHIR
+                        </span>
+                        <h1 className="text-xl sm:text-2xl font-black text-ink tracking-tight mt-2">
+                            Buat Kata Sandi Baru
+                        </h1>
+                        <p className="text-xs sm:text-sm text-ink-muted mt-1 leading-relaxed">
+                            Silakan masukkan kata sandi baru yang aman untuk akun Anda.
+                        </p>
+                    </div>
 
-            <form onSubmit={submit}>
-                <div>
-                    <InputLabel htmlFor="email" value="Email" />
+                    <form onSubmit={submit} className="space-y-4">
+                        {/* Email Read-only */}
+                        <div>
+                            <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5">
+                                ALAMAT EMAIL
+                            </label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
+                                    <Mail className="w-4 h-4" />
+                                </div>
+                                <input
+                                    type="email"
+                                    value={data.email}
+                                    readOnly
+                                    className="w-full pl-10 pr-4 py-2.5 bg-paper-dark border-2 border-ink rounded-xl shadow-sketch-xs text-xs font-mono font-bold text-ink cursor-not-allowed select-all"
+                                />
+                            </div>
+                            <InputError message={errors.email} className="mt-1 text-xs font-bold text-red-600" />
+                        </div>
 
-                    <TextInput
-                        id="email"
-                        type="email"
-                        name="email"
-                        value={data.email}
-                        className="mt-1 block w-full"
-                        autoComplete="username"
-                        onChange={(e) => setData('email', e.target.value)}
-                    />
+                        {/* Password Baru */}
+                        <div>
+                            <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5">
+                                KATA SANDI BARU
+                            </label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
+                                    <Lock className="w-4 h-4" />
+                                </div>
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                    placeholder="Minimal 8 karakter"
+                                    required
+                                    autoFocus
+                                    className="w-full pl-10 pr-11 py-2.5 bg-white border-2 border-ink rounded-xl shadow-sketch-xs focus:ring-0 focus:border-brand text-xs sm:text-sm font-semibold placeholder:text-ink-muted/50 transition-all"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-ink-muted hover:text-ink transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            <InputError message={errors.password} className="mt-1 text-xs font-bold text-red-600" />
+                        </div>
 
-                    <InputError message={errors.email} className="mt-2" />
+                        {/* Konfirmasi Password */}
+                        <div>
+                            <label className="block text-xs font-mono font-bold uppercase tracking-wider text-ink mb-1.5">
+                                KONFIRMASI KATA SANDI
+                            </label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
+                                    <Lock className="w-4 h-4" />
+                                </div>
+                                <input
+                                    type={showConfirmPassword ? 'text' : 'password'}
+                                    value={data.password_confirmation}
+                                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                                    placeholder="Ulangi kata sandi baru"
+                                    required
+                                    className="w-full pl-10 pr-11 py-2.5 bg-white border-2 border-ink rounded-xl shadow-sketch-xs focus:ring-0 focus:border-brand text-xs sm:text-sm font-semibold placeholder:text-ink-muted/50 transition-all"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-ink-muted hover:text-ink transition-colors"
+                                >
+                                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            <InputError message={errors.password_confirmation} className="mt-1 text-xs font-bold text-red-600" />
+                        </div>
+
+                        <div className="pt-2">
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="sketch-btn w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm rounded-xl border-2 border-ink shadow-sketch active:translate-y-0.5 active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                            >
+                                <Check className="w-4 h-4 stroke-[3]" />
+                                <span>{processing ? 'Menyimpan...' : 'Simpan Kata Sandi Baru'}</span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
-
-                    <TextInput
-                        id="password"
-                        type="password"
-                        name="password"
-                        value={data.password}
-                        className="mt-1 block w-full"
-                        autoComplete="new-password"
-                        isFocused={true}
-                        onChange={(e) => setData('password', e.target.value)}
-                    />
-
-                    <InputError message={errors.password} className="mt-2" />
-                </div>
-
-                <div className="mt-4">
-                    <InputLabel
-                        htmlFor="password_confirmation"
-                        value="Confirm Password"
-                    />
-
-                    <TextInput
-                        type="password"
-                        id="password_confirmation"
-                        name="password_confirmation"
-                        value={data.password_confirmation}
-                        className="mt-1 block w-full"
-                        autoComplete="new-password"
-                        onChange={(e) =>
-                            setData('password_confirmation', e.target.value)
-                        }
-                    />
-
-                    <InputError
-                        message={errors.password_confirmation}
-                        className="mt-2"
-                    />
-                </div>
-
-                <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Reset Password
-                    </PrimaryButton>
-                </div>
-            </form>
-        </GuestLayout>
+            </div>
+        </MainLayout>
     );
 }
