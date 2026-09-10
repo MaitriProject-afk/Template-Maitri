@@ -425,71 +425,57 @@ export default function Invoice({ transaction: initialTransaction, adminPhone })
                         )}
                     </div>
 
-                    {/* TWO-COLUMN LAYOUT: QRIS & ORDER DETAILS */}
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-                        
-                        {/* LEFT COLUMN: QRIS SCANNER (Jika belum expired & belum lunas, atau tampilkan preview) */}
-                        <div className="md:col-span-5 flex flex-col items-center">
-                            <div className="w-full bg-white border-3 border-ink rounded-2xl p-5 shadow-sketch text-center">
-                                
-                                {/* Header Brand QRIS */}
-                                <div className="flex items-center justify-between pb-3 mb-3 border-b-2 border-ink text-xs font-black font-mono">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-rose-600 font-black tracking-tight text-base">QRIS</span>
-                                        <span className="text-[9px] bg-ink text-white px-1.5 py-0.5 rounded font-mono">
-                                            OTOMATIS
+                    {/* CONDITIONAL LAYOUT: QRIS (Jika UNPAID & belum expired) & DETAIL PESANAN */}
+                    {(!trx.is_paid && !trx.is_expired) ? (
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                            
+                            {/* LEFT COLUMN: QRIS SCANNER */}
+                            <div className="md:col-span-5 flex flex-col items-center">
+                                <div className="w-full bg-white border-3 border-ink rounded-2xl p-5 shadow-sketch text-center">
+                                    
+                                    {/* Header Brand QRIS */}
+                                    <div className="flex items-center justify-between pb-3 mb-3 border-b-2 border-ink text-xs font-black font-mono">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-rose-600 font-black tracking-tight text-base">QRIS</span>
+                                            <span className="text-[9px] bg-ink text-white px-1.5 py-0.5 rounded font-mono">
+                                                OTOMATIS
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] text-ink-muted">PAYDISINI RESMI</span>
+                                    </div>
+
+                                    {/* QR Code Frame */}
+                                    <div className="p-3 bg-paper-light border-2 border-ink rounded-xl inline-block my-2 relative">
+                                        {trx.qr_content && (
+                                            <div ref={qrRef} className="bg-white p-2 rounded-lg">
+                                                <QRCodeSVG
+                                                    id="qris-svg-code"
+                                                    value={trx.qr_content}
+                                                    size={200}
+                                                    level="M"
+                                                    includeMargin={true}
+                                                    className="w-48 h-48 sm:w-52 sm:h-52 mx-auto"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Watermark/NMID */}
+                                        <p className="text-[9px] font-mono text-ink-muted mt-2">
+                                            NMID: ID10200391823910 &bull; VERIFIED
+                                        </p>
+                                    </div>
+
+                                    {/* Total Price Under QR */}
+                                    <div className="mt-3 pt-3 border-t-2 border-dashed border-ink/20">
+                                        <span className="text-[11px] font-medium text-ink-muted block">
+                                            Total Pembayaran:
+                                        </span>
+                                        <span className="text-2xl font-mono font-black text-brand tracking-tight">
+                                            {trx.formatted_total_payment}
                                         </span>
                                     </div>
-                                    <span className="text-[10px] text-ink-muted">PAYDISINI RESMI</span>
-                                </div>
 
-                                {/* QR Code Frame */}
-                                <div className="p-3 bg-paper-light border-2 border-ink rounded-xl inline-block my-2 relative">
-                                    {trx.qr_content && !trx.is_expired ? (
-                                        <div ref={qrRef} className="bg-white p-2 rounded-lg">
-                                            <QRCodeSVG
-                                                id="qris-svg-code"
-                                                value={trx.qr_content}
-                                                size={200}
-                                                level="M"
-                                                includeMargin={true}
-                                                className="w-48 h-48 sm:w-52 sm:h-52 mx-auto"
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="w-48 h-48 sm:w-52 sm:h-52 bg-paper-dark rounded-lg flex flex-col items-center justify-center p-4 text-center">
-                                            {trx.is_expired ? (
-                                                <>
-                                                    <XCircle className="w-10 h-10 text-rose-500 mb-2" />
-                                                    <span className="text-xs font-bold text-ink">QRIS Kadaluarsa</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-2" />
-                                                    <span className="text-xs font-bold text-ink">Sudah Dibayar</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Watermark/NMID */}
-                                    <p className="text-[9px] font-mono text-ink-muted mt-2">
-                                        NMID: ID10200391823910 &bull; VERIFIED
-                                    </p>
-                                </div>
-
-                                {/* Total Price Under QR */}
-                                <div className="mt-3 pt-3 border-t-2 border-dashed border-ink/20">
-                                    <span className="text-[11px] font-medium text-ink-muted block">
-                                        Total Pembayaran:
-                                    </span>
-                                    <span className="text-2xl font-mono font-black text-brand tracking-tight">
-                                        {trx.formatted_total_payment}
-                                    </span>
-                                </div>
-
-                                {/* Action Buttons for QR */}
-                                {!trx.is_expired && !trx.is_paid && (
+                                    {/* Action Buttons for QR */}
                                     <div className="mt-4 space-y-2">
                                         {trx.qr_content && (
                                             <button
@@ -514,94 +500,194 @@ export default function Invoice({ transaction: initialTransaction, adminPhone })
                                             </a>
                                         )}
                                     </div>
-                                )}
 
-                                {/* Payment Methods Accepted */}
-                                <div className="mt-4 pt-3 border-t border-ink/10 text-[10px] text-ink-muted leading-tight">
-                                    Dukung semua e-wallet (GoPay, OVO, DANA, ShopeePay, LinkAja) dan Mobile Banking (BCA, Mandiri, BRI, BNI, Jago, dll).
+                                    {/* Payment Methods Accepted */}
+                                    <div className="mt-4 pt-3 border-t border-ink/10 text-[10px] text-ink-muted leading-tight">
+                                        Dukung semua e-wallet (GoPay, OVO, DANA, ShopeePay, LinkAja) dan Mobile Banking (BCA, Mandiri, BRI, BNI, Jago, dll).
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* RIGHT COLUMN: ORDER DETAILS & BREAKDOWN */}
-                        <div className="md:col-span-7 space-y-4">
+                            {/* RIGHT COLUMN: ORDER DETAILS & BREAKDOWN */}
+                            <div className="md:col-span-7 space-y-4">
+                                
+                                {/* Product Info Card */}
+                                <div className="bg-white border-3 border-ink rounded-2xl p-5 shadow-sketch">
+                                    <h3 className="text-xs font-black uppercase tracking-wider text-ink-muted mb-3 pb-2 border-b-2 border-ink/10 flex items-center gap-1.5">
+                                        <Sparkles className="w-3.5 h-3.5 text-brand" />
+                                        Detail Produk & Layanan
+                                    </h3>
+
+                                    <div className="flex items-center gap-3.5 mb-4">
+                                        {trx.product_thumbnail ? (
+                                            <img
+                                                src={trx.product_thumbnail}
+                                                alt={trx.product_name}
+                                                className="w-14 h-14 object-cover rounded-xl border-2 border-ink shadow-sketch-xs shrink-0"
+                                            />
+                                        ) : (
+                                            <div className="w-14 h-14 rounded-xl bg-brand/10 border-2 border-ink flex items-center justify-center font-black text-brand text-lg shrink-0">
+                                                {trx.product_name?.substring(0, 2).toUpperCase()}
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <h4 className="font-black text-ink text-base leading-tight">
+                                                {trx.product_name}
+                                            </h4>
+                                            <span className="inline-block mt-1 text-xs font-mono font-bold bg-paper-dark px-2 py-0.5 rounded border border-ink/20 text-ink">
+                                                {trx.item_name || 'Nominal Resmi'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Detail Specifications List */}
+                                    <div className="space-y-2 text-xs divide-y divide-ink/10">
+                                        <div className="flex justify-between items-center pt-2">
+                                            <span className="text-ink-muted">Target Tujuan (ID/No HP):</span>
+                                            <span className="font-mono font-black text-ink select-all text-sm bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                                                {trx.customer_no}
+                                            </span>
+                                        </div>
+
+                                        {trx.customer_whatsapp && (
+                                            <div className="flex justify-between items-center pt-2">
+                                                <span className="text-ink-muted">No. WhatsApp Pembeli:</span>
+                                                <span className="font-mono font-bold text-ink">{trx.customer_whatsapp}</span>
+                                            </div>
+                                        )}
+
+                                        <div className="flex justify-between items-center pt-2">
+                                            <span className="text-ink-muted">Metode Pembayaran:</span>
+                                            <span className="font-bold text-ink">QRIS Real-Time (Semua E-Wallet & Bank)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Financial Price Breakdown Card */}
+                                <div className="bg-white border-3 border-ink rounded-2xl p-5 shadow-sketch">
+                                    <h3 className="text-xs font-black uppercase tracking-wider text-ink-muted mb-3 pb-2 border-b-2 border-ink/10 flex items-center gap-1.5">
+                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                        Rincian Tagihan Pembayaran
+                                    </h3>
+
+                                    <div className="space-y-2.5 text-xs">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-ink-muted">Harga Produk:</span>
+                                            <span className="font-mono font-bold text-ink">{trx.formatted_reseller_price}</span>
+                                        </div>
+
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-ink-muted">Biaya Layanan & Admin QRIS:</span>
+                                            <span className="font-mono font-bold text-ink">{trx.formatted_admin_fee}</span>
+                                        </div>
+
+                                        <div className="pt-3 border-t-2 border-ink flex justify-between items-center">
+                                            <div>
+                                                <span className="font-black text-ink text-sm block">Total Bayar:</span>
+                                                <span className="text-[10px] text-ink-muted">Tepat sesuai nominal QR</span>
+                                            </div>
+                                            <span className="font-mono font-black text-brand text-xl">
+                                                {trx.formatted_total_payment}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Riwayat Waktu Transaksi */}
+                                <div className="bg-paper-dark/60 border-2 border-ink/20 rounded-xl p-4 text-[11px] font-mono text-ink-muted space-y-1">
+                                    <div>&bull; Dibuat pada: <strong className="text-ink">{trx.created_at}</strong></div>
+                                    {trx.paid_at_formatted && (
+                                        <div>&bull; Dibayar pada: <strong className="text-emerald-700">{trx.paid_at_formatted}</strong></div>
+                                    )}
+                                    {trx.completed_at_formatted && (
+                                        <div>&bull; Selesai pada: <strong className="text-emerald-700">{trx.completed_at_formatted}</strong></div>
+                                    )}
+                                    {trx.expired_at_formatted && !trx.is_paid && (
+                                        <div>&bull; Kadaluarsa pada: <strong className="text-rose-700">{trx.expired_at_formatted}</strong></div>
+                                    )}
+                                </div>
+
+                            </div>
+                        </div>
+                    ) : (
+                        /* KETIKA SUDAH SELESAI / DIBAYAR / EXPIRED: QRIS DIHILANGKAN, TAMPILAN MELEBAR RAPI 2 KOLOM */
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                             
-                            {/* Product Info Card */}
-                            <div className="bg-white border-3 border-ink rounded-2xl p-5 shadow-sketch">
-                                <h3 className="text-xs font-black uppercase tracking-wider text-ink-muted mb-3 pb-2 border-b-2 border-ink/10 flex items-center gap-1.5">
+                            {/* Card 1: Detail Produk & Target */}
+                            <div className="bg-white border-3 border-ink rounded-2xl p-5 sm:p-6 shadow-sketch space-y-4">
+                                <h3 className="text-xs font-black uppercase tracking-wider text-ink-muted pb-2 border-b-2 border-ink/10 flex items-center gap-1.5">
                                     <Sparkles className="w-3.5 h-3.5 text-brand" />
                                     Detail Produk & Layanan
                                 </h3>
 
-                                <div className="flex items-center gap-3.5 mb-4">
+                                <div className="flex items-center gap-3.5">
                                     {trx.product_thumbnail ? (
                                         <img
                                             src={trx.product_thumbnail}
                                             alt={trx.product_name}
-                                            className="w-14 h-14 object-cover rounded-xl border-2 border-ink shadow-sketch-xs shrink-0"
+                                            className="w-16 h-16 object-cover rounded-xl border-2 border-ink shadow-sketch-xs shrink-0"
                                         />
                                     ) : (
-                                        <div className="w-14 h-14 rounded-xl bg-brand/10 border-2 border-ink flex items-center justify-center font-black text-brand text-lg shrink-0">
+                                        <div className="w-16 h-16 rounded-xl bg-brand/10 border-2 border-ink flex items-center justify-center font-black text-brand text-xl shrink-0">
                                             {trx.product_name?.substring(0, 2).toUpperCase()}
                                         </div>
                                     )}
 
                                     <div>
-                                        <h4 className="font-black text-ink text-base leading-tight">
+                                        <h4 className="font-black text-ink text-base sm:text-lg leading-tight">
                                             {trx.product_name}
                                         </h4>
-                                        <span className="inline-block mt-1 text-xs font-mono font-bold bg-paper-dark px-2 py-0.5 rounded border border-ink/20 text-ink">
+                                        <span className="inline-block mt-1 text-xs font-mono font-bold bg-paper-dark px-2.5 py-0.5 rounded border border-ink/20 text-ink">
                                             {trx.item_name || 'Nominal Resmi'}
                                         </span>
                                     </div>
                                 </div>
 
-                                {/* Detail Specifications List */}
-                                <div className="space-y-2 text-xs divide-y divide-ink/10">
+                                <div className="space-y-2.5 text-xs divide-y divide-ink/10 pt-2">
                                     <div className="flex justify-between items-center pt-2">
-                                        <span className="text-ink-muted">Target Tujuan (ID/No HP):</span>
-                                        <span className="font-mono font-black text-ink select-all text-sm bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                                        <span className="text-ink-muted font-medium">Target Tujuan (ID/No HP):</span>
+                                        <span className="font-mono font-black text-ink select-all text-sm bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-300">
                                             {trx.customer_no}
                                         </span>
                                     </div>
 
                                     {trx.customer_whatsapp && (
-                                        <div className="flex justify-between items-center pt-2">
-                                            <span className="text-ink-muted">No. WhatsApp Pembeli:</span>
+                                        <div className="flex justify-between items-center pt-2.5">
+                                            <span className="text-ink-muted font-medium">No. WhatsApp Pembeli:</span>
                                             <span className="font-mono font-bold text-ink">{trx.customer_whatsapp}</span>
                                         </div>
                                     )}
 
-                                    {trx.maitri_invoice && (
-                                        <div className="flex justify-between items-center pt-2">
-                                            <span className="text-ink-muted">No. Ref Maitri (H2H):</span>
-                                            <span className="font-mono font-bold text-ink flex items-center gap-1">
-                                                {trx.maitri_invoice}
-                                                <button
-                                                    onClick={() => handleCopy(trx.maitri_invoice, 'mtr')}
-                                                    className="text-ink-muted hover:text-ink"
-                                                >
-                                                    {copiedField === 'mtr' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                                </button>
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    <div className="flex justify-between items-center pt-2">
-                                        <span className="text-ink-muted">Metode Pembayaran:</span>
-                                        <span className="font-bold text-ink">QRIS Real-Time (Semua E-Wallet & Bank)</span>
+                                    <div className="flex justify-between items-center pt-2.5">
+                                        <span className="text-ink-muted font-medium">Metode Pembayaran:</span>
+                                        <span className="font-bold text-ink">QRIS Real-Time</span>
                                     </div>
+                                </div>
+
+                                {/* Riwayat Waktu Transaksi */}
+                                <div className="bg-paper-dark/60 border-2 border-ink/20 rounded-xl p-3.5 text-[11px] font-mono text-ink-muted space-y-1 mt-4">
+                                    <div>&bull; Dibuat pada: <strong className="text-ink">{trx.created_at}</strong></div>
+                                    {trx.paid_at_formatted && (
+                                        <div>&bull; Dibayar pada: <strong className="text-emerald-700">{trx.paid_at_formatted}</strong></div>
+                                    )}
+                                    {trx.completed_at_formatted && (
+                                        <div>&bull; Selesai pada: <strong className="text-emerald-700">{trx.completed_at_formatted}</strong></div>
+                                    )}
+                                    {trx.expired_at_formatted && !trx.is_paid && (
+                                        <div>&bull; Kadaluarsa pada: <strong className="text-rose-700">{trx.expired_at_formatted}</strong></div>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Financial Price Breakdown Card */}
-                            <div className="bg-white border-3 border-ink rounded-2xl p-5 shadow-sketch">
-                                <h3 className="text-xs font-black uppercase tracking-wider text-ink-muted mb-3 pb-2 border-b-2 border-ink/10 flex items-center gap-1.5">
+                            {/* Card 2: Rincian Tagihan Pembayaran */}
+                            <div className="bg-white border-3 border-ink rounded-2xl p-5 sm:p-6 shadow-sketch space-y-4">
+                                <h3 className="text-xs font-black uppercase tracking-wider text-ink-muted pb-2 border-b-2 border-ink/10 flex items-center gap-1.5">
                                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                                     Rincian Tagihan Pembayaran
                                 </h3>
 
-                                <div className="space-y-2.5 text-xs">
+                                <div className="space-y-3 text-xs">
                                     <div className="flex justify-between items-center">
                                         <span className="text-ink-muted">Harga Produk:</span>
                                         <span className="font-mono font-bold text-ink">{trx.formatted_reseller_price}</span>
@@ -614,32 +700,25 @@ export default function Invoice({ transaction: initialTransaction, adminPhone })
 
                                     <div className="pt-3 border-t-2 border-ink flex justify-between items-center">
                                         <div>
-                                            <span className="font-black text-ink text-sm block">Total Bayar:</span>
-                                            <span className="text-[10px] text-ink-muted">Tepat sesuai nominal QR</span>
+                                            <span className="font-black text-ink text-sm block">Total Tagihan:</span>
+                                            <span className="text-[10px] text-ink-muted">Nominal lunas</span>
                                         </div>
-                                        <span className="font-mono font-black text-brand text-xl">
+                                        <span className="font-mono font-black text-brand text-2xl">
                                             {trx.formatted_total_payment}
                                         </span>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Riwayat Waktu Transaksi */}
-                            <div className="bg-paper-dark/60 border-2 border-ink/20 rounded-xl p-4 text-[11px] font-mono text-ink-muted space-y-1">
-                                <div>&bull; Dibuat pada: <strong className="text-ink">{trx.created_at}</strong></div>
-                                {trx.paid_at_formatted && (
-                                    <div>&bull; Dibayar pada: <strong className="text-emerald-700">{trx.paid_at_formatted}</strong></div>
-                                )}
-                                {trx.completed_at_formatted && (
-                                    <div>&bull; Selesai pada: <strong className="text-emerald-700">{trx.completed_at_formatted}</strong></div>
-                                )}
-                                {trx.expired_at_formatted && !trx.is_paid && (
-                                    <div>&bull; Kadaluarsa pada: <strong className="text-rose-700">{trx.expired_at_formatted}</strong></div>
-                                )}
+                                <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <span>
+                                        {trx.is_paid ? 'Pembayaran telah lunas diverifikasi otomatis.' : 'Sesi pembayaran QRIS telah ditutup.'}
+                                    </span>
+                                </div>
                             </div>
 
                         </div>
-                    </div>
+                    )}
 
                 </div>
             </div>
