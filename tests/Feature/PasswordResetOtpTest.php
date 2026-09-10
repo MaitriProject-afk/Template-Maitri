@@ -187,4 +187,60 @@ class PasswordResetOtpTest extends TestCase
         $user->refresh();
         $this->assertTrue(Hash::check('oldpassword123', $user->password));
     }
+
+    public function test_invalid_otp_code_preserves_step_2_session(): void
+    {
+        User::factory()->create([
+            'email' => 'member@example.com',
+        ]);
+
+        PasswordResetCode::generateCode('member@example.com');
+
+        $response = $this->post('/forgot-password/verify-code', [
+            'email' => 'member@example.com',
+            'code' => '999999',
+        ]);
+
+        $response->assertSessionHasErrors('code');
+        $this->assertEquals(2, session('reset_step'));
+        $this->assertEquals('member@example.com', session('reset_email'));
+    }
+
+    public function test_mismatched_password_preserves_step_3_session(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'member@example.com',
+        ]);
+
+        $otp = PasswordResetCode::generateCode('member@example.com');
+        $verifyResult = PasswordResetCode::verifyCode('member@example.com', $otp);
+        $token = $verifyResult['reset_token'];
+
+        $response = $this->post('/reset-password', [
+            'email' => 'member@example.com',
+            'token' => $token,
+            'password' => 'Password123!',
+            'password_confirmation' => 'DifferentPassword123!',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+        $this->assertEquals(3, session('reset_step'));
+        $this->assertEquals('member@example.com', session('reset_email'));
+        $this->assertEquals($token, session('reset_token'));
+    }
+
+    public function test_restart_route_resets_session_back_to_step_1(): void
+    {
+        session([
+            'reset_step' => 2,
+            'reset_email' => 'member@example.com',
+            'reset_token' => 'sample_token',
+        ]);
+
+        $response = $this->post('/forgot-password/restart');
+
+        $response->assertRedirect('/forgot-password');
+        $this->assertNull(session('reset_step'));
+        $this->assertNull(session('reset_token'));
+    }
 }

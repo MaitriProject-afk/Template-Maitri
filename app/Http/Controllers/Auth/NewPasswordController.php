@@ -43,6 +43,13 @@ class NewPasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        // Maintain step 3 in session in case password confirmation or strength fails
+        session([
+            'reset_step' => 3,
+            'reset_email' => $request->email,
+            'reset_token' => $request->token,
+        ]);
+
         $request->validate([
             'token' => 'required|string',
             'email' => 'required|email',

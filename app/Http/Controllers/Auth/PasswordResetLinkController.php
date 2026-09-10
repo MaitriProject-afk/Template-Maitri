@@ -77,6 +77,13 @@ class PasswordResetLinkController extends Controller
             }
         }
 
+        // Store persistent session state so validation errors in step 2 won't kick user back to step 1
+        session([
+            'reset_email' => $request->email,
+            'reset_step' => 2,
+        ]);
+        session()->forget('reset_token');
+
         return back()
             ->with('status', 'Jika alamat email terdaftar, kode verifikasi 6-digit telah dikirimkan ke kotak masuk Anda.')
             ->with('reset_email', $request->email)
@@ -90,6 +97,12 @@ class PasswordResetLinkController extends Controller
      */
     public function verifyCode(Request $request): RedirectResponse
     {
+        // Maintain step 2 in session in case of validation failure
+        session([
+            'reset_email' => $request->email,
+            'reset_step' => 2,
+        ]);
+
         $request->validate([
             'email' => 'required|email|max:255',
             'code' => 'required|string|size:6',
@@ -112,7 +125,13 @@ class PasswordResetLinkController extends Controller
             ]);
         }
 
-        // Successfully verified -> Issue one-time reset token and advance to Step 3
+        // Successfully verified -> Advance to Step 3 in session
+        session([
+            'reset_email' => $request->email,
+            'reset_token' => $result['reset_token'],
+            'reset_step' => 3,
+        ]);
+
         return back()
             ->with('status', 'Kode verifikasi berhasil dikonfirmasi! Silakan buat kata sandi baru Anda.')
             ->with('reset_email', $request->email)
@@ -140,5 +159,15 @@ class PasswordResetLinkController extends Controller
         RateLimiter::hit($resendCooldownKey, 60); // 60 seconds cooldown
 
         return $this->store($request);
+    }
+
+    /**
+     * Reset the reset password session back to step 1.
+     */
+    public function restart(): RedirectResponse
+    {
+        session()->forget(['reset_step', 'reset_token']);
+
+        return redirect()->route('password.request');
     }
 }

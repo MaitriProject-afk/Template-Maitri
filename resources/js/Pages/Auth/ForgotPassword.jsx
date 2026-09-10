@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import InputError from '@/Components/InputError';
 import { 
@@ -24,16 +24,25 @@ export default function ForgotPassword({ status, sessionEmail, sessionStep, sess
     const siteName = site?.site_name || 'Maitri Project';
 
     // Current step: 1 (Email) | 2 (Verify OTP) | 3 (New Password)
-    const [step, setStep] = useState(sessionStep || 1);
+    const [step, setStep] = useState(sessionStep ? Math.max(1, sessionStep) : 1);
     const [activeEmail, setActiveEmail] = useState(sessionEmail || '');
     const [resetToken, setResetToken] = useState(sessionToken || '');
     const [cooldown, setCooldown] = useState(0);
 
-    // Sync from server props if updated
+    // Sync from server props if updated, but NEVER downgrade to step 1 on validation errors
     useEffect(() => {
-        if (sessionStep) setStep(sessionStep);
-        if (sessionEmail) setActiveEmail(sessionEmail);
-        if (sessionToken) setResetToken(sessionToken);
+        if (sessionStep && sessionStep > step) {
+            setStep(sessionStep);
+        }
+        if (sessionEmail) {
+            setActiveEmail(sessionEmail);
+            otpForm.setData('email', sessionEmail);
+            passwordForm.setData('email', sessionEmail);
+        }
+        if (sessionToken) {
+            setResetToken(sessionToken);
+            passwordForm.setData('token', sessionToken);
+        }
     }, [sessionStep, sessionEmail, sessionToken]);
 
     // Resend cooldown timer
@@ -64,6 +73,20 @@ export default function ForgotPassword({ status, sessionEmail, sessionStep, sess
         password_confirmation: '',
     });
 
+    // Auto-maintain step 2 if code errors exist
+    useEffect(() => {
+        if (otpForm.errors?.code) {
+            setStep(2);
+        }
+    }, [otpForm.errors]);
+
+    // Auto-maintain step 3 if password errors exist
+    useEffect(() => {
+        if (passwordForm.errors?.password || passwordForm.errors?.password_confirmation || passwordForm.errors?.token) {
+            setStep(3);
+        }
+    }, [passwordForm.errors]);
+
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -72,6 +95,7 @@ export default function ForgotPassword({ status, sessionEmail, sessionStep, sess
         e.preventDefault();
         emailForm.post(route('password.email'), {
             preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
                 setActiveEmail(emailForm.data.email);
                 otpForm.setData('email', emailForm.data.email);
@@ -88,6 +112,10 @@ export default function ForgotPassword({ status, sessionEmail, sessionStep, sess
         otpForm.setData('email', activeEmail);
         otpForm.post(route('password.verify-code'), {
             preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                setStep(2);
+            },
             onSuccess: (page) => {
                 const token = page.props?.sessionToken || sessionToken;
                 if (token) {
@@ -105,8 +133,24 @@ export default function ForgotPassword({ status, sessionEmail, sessionStep, sess
         emailForm.setData('email', activeEmail);
         emailForm.post(route('password.resend-code'), {
             preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
                 setCooldown(60);
+            },
+        });
+    };
+
+    // Restart process back to step 1
+    const handleRestart = () => {
+        router.post(route('password.restart'), {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setStep(1);
+                setActiveEmail('');
+                setResetToken('');
+                emailForm.reset();
+                otpForm.reset();
+                passwordForm.reset();
             },
         });
     };
@@ -121,7 +165,11 @@ export default function ForgotPassword({ status, sessionEmail, sessionStep, sess
             password_confirmation: passwordForm.data.password_confirmation,
         });
         passwordForm.post(route('password.store'), {
-            onFinish: () => passwordForm.reset('password', 'password_confirmation'),
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                setStep(3);
+            },
         });
     };
 
@@ -309,7 +357,7 @@ export default function ForgotPassword({ status, sessionEmail, sessionStep, sess
                                         </span>
                                         <button
                                             type="button"
-                                            onClick={() => setStep(1)}
+                                            onClick={handleRestart}
                                             className="text-xs font-bold text-ink hover:text-brand underline flex items-center gap-1"
                                         >
                                             <RotateCcw className="w-3 h-3" />
