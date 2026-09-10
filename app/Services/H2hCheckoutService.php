@@ -153,6 +153,65 @@ class H2hCheckoutService
     }
 
     /**
+     * Synchronize a transaction with live provider status and send invoice email if completed.
+     */
+    public function syncTransactionStatus(Transaction $transaction): Transaction
+    {
+        // If already in a final state, return as is
+        if ($transaction->isTopupCompleted() || $transaction->isTopupFailed() || $transaction->isExpired()) {
+            return $transaction;
+        }
+
+        $statusResponse = $this->checkStatus($transaction->invoice_code);
+
+        if (! empty($statusResponse['success']) || ! empty($statusResponse['data'])) {
+            $data = $statusResponse['data'] ?? $statusResponse;
+
+            $updateData = [];
+
+            if (! empty($data['payment_status'])) {
+                $paymentStatus = strtoupper($data['payment_status']);
+                $updateData['payment_status'] = $paymentStatus;
+                if (in_array($paymentStatus, ['PAID', 'SETTLED', 'SUCCESS']) && ! $transaction->paid_at) {
+                    $updateData['paid_at'] = Carbon::now();
+                }
+            }
+
+            if (! empty($data['topup_status'])) {
+                $topupStatus = strtoupper($data['topup_status']);
+                $updateData['topup_status'] = $topupStatus;
+                if (($topupStatus === 'SUCCESS' || $topupStatus === 'FAILED') && ! $transaction->completed_at) {
+                    $updateData['completed_at'] = Carbon::now();
+                }
+            }
+
+            if (! empty($data['sn'])) {
+                $updateData['sn'] = $data['sn'];
+            }
+
+            if (! empty($data['message'])) {
+                $updateData['topup_message'] = $data['message'];
+            }
+
+            if (! empty($data['maitri_invoice'])) {
+                $updateData['maitri_invoice'] = $data['maitri_invoice'];
+            }
+
+            if (! empty($updateData)) {
+                $transaction->update($updateData);
+            }
+
+            // Otomatis kirim email invoice (sukses / gagal) jika transaksi telah lunas & berstatus final
+            $fresh = $transaction->fresh();
+            $fresh->sendInvoiceEmail();
+
+            return $fresh;
+        }
+
+        return $transaction;
+    }
+
+    /**
      * Get H2H Reseller profile and balance from Maitri API.
      */
     public function getProfile(): array

@@ -97,7 +97,9 @@ export default function Invoice({ auth, transaction: initialTransaction, adminPh
     const handleManualRefresh = async () => {
         setIsRefreshing(true);
         try {
-            const res = await axios.get(route('invoice.status', { invoice_code: trx.invoice_code }));
+            const res = await axios.get(route('invoice.status', { invoice_code: trx.invoice_code }), {
+                params: { sync: 1 }
+            });
             if (res.data && res.data.success) {
                 const data = res.data;
                 setTrx(prev => ({
@@ -112,6 +114,8 @@ export default function Invoice({ auth, transaction: initialTransaction, adminPh
                     sn: data.sn || prev.sn,
                     payment_message: data.payment_message || prev.payment_message,
                     topup_message: data.topup_message || prev.topup_message,
+                    paid_at_formatted: data.paid_at ? new Date(data.paid_at).toLocaleString('id-ID') + ' WIB' : prev.paid_at_formatted,
+                    completed_at_formatted: data.completed_at ? new Date(data.completed_at).toLocaleString('id-ID') + ' WIB' : prev.completed_at_formatted,
                 }));
             }
         } catch (err) {

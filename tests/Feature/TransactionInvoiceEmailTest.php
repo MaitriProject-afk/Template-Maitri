@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -247,5 +248,57 @@ class TransactionInvoiceEmailTest extends TestCase
 
         $response->assertRedirect();
         Mail::assertSent(TransactionInvoiceMail::class);
+    }
+
+    public function test_invoice_status_polling_syncs_with_h2h_and_triggers_email(): void
+    {
+        Mail::fake();
+        Http::fake([
+            '*/status/*' => Http::response([
+                'success' => true,
+                'message' => 'Status transaksi berhasil diambil.',
+                'data' => [
+                    'payment_status' => 'PAID',
+                    'topup_status' => 'SUCCESS',
+                    'sn' => 'SN-LIVE-POLL-7788',
+                    'message' => 'Topup berhasil diproses.',
+                ],
+            ], 200),
+        ]);
+
+        $transaction = Transaction::create([
+            'invoice_code' => 'INV-POLL-01',
+            'product_id' => $this->product->id,
+            'product_item_id' => $this->item->id,
+            'buyer_sku_code' => 'ML-86',
+            'product_name' => 'Mobile Legends - 86 Diamonds',
+            'customer_no' => '12345678 (2001)',
+            'customer_email' => 'polling_buyer@example.com',
+            'h2h_price' => 20000,
+            'reseller_price' => 22000,
+            'admin_fee' => 0,
+            'total_payment' => 22000,
+            'payment_status' => 'PAID',
+            'topup_status' => 'PROCESSING', // Not yet completed locally
+        ]);
+
+        $response = $this->getJson(route('invoice.status', ['invoice_code' => $transaction->invoice_code]));
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'topup_status' => 'SUCCESS',
+            'is_completed' => true,
+            'sn' => 'SN-LIVE-POLL-7788',
+        ]);
+
+        // Assert local database was updated
+        $this->assertEquals('SUCCESS', $transaction->fresh()->topup_status);
+        $this->assertEquals('SN-LIVE-POLL-7788', $transaction->fresh()->sn);
+
+        // Assert invoice email was automatically sent!
+        Mail::assertSent(TransactionInvoiceMail::class, function (TransactionInvoiceMail $mail) {
+            return $mail->type === 'success' && $mail->hasTo('polling_buyer@example.com');
+        });
     }
 }

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
 use App\Services\H2hCheckoutService;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -134,67 +133,17 @@ class TransactionController extends Controller
      */
     public function syncStatus(Transaction $transaction): JsonResponse|RedirectResponse
     {
-        $statusResponse = $this->checkoutService->checkStatus($transaction->invoice_code);
-
-        if (! empty($statusResponse['success']) || ! empty($statusResponse['data'])) {
-            $data = $statusResponse['data'] ?? $statusResponse;
-
-            $updateData = [];
-
-            if (! empty($data['payment_status'])) {
-                $updateData['payment_status'] = strtoupper($data['payment_status']);
-                if ($updateData['payment_status'] === 'PAID' && ! $transaction->paid_at) {
-                    $updateData['paid_at'] = Carbon::now();
-                }
-            }
-
-            if (! empty($data['topup_status'])) {
-                $updateData['topup_status'] = strtoupper($data['topup_status']);
-                if ($updateData['topup_status'] === 'SUCCESS' && ! $transaction->completed_at) {
-                    $updateData['completed_at'] = Carbon::now();
-                }
-            }
-
-            if (! empty($data['sn'])) {
-                $updateData['sn'] = $data['sn'];
-            }
-
-            if (! empty($data['message'])) {
-                $updateData['topup_message'] = $data['message'];
-            }
-
-            if (! empty($data['maitri_invoice'])) {
-                $updateData['maitri_invoice'] = $data['maitri_invoice'];
-            }
-
-            if (! empty($updateData)) {
-                $transaction->update($updateData);
-            }
-
-            // Kirim email invoice jika status telah final (sukses/gagal) dan belum pernah terkirim
-            $transaction->fresh()->sendInvoiceEmail();
-
-            if (request()->wantsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Status transaksi berhasil disinkronkan dengan server H2H.',
-                    'transaction' => $transaction->fresh(),
-                ]);
-            }
-
-            return back()->with('success', 'Status transaksi berhasil disinkronkan dengan server H2H.');
-        }
-
-        $errorMessage = $statusResponse['message'] ?? 'Tidak ada pembaruan status dari server provider.';
+        $updatedTransaction = $this->checkoutService->syncTransactionStatus($transaction);
 
         if (request()->wantsJson()) {
             return response()->json([
-                'success' => false,
-                'message' => $errorMessage,
-            ], 422);
+                'success' => true,
+                'message' => 'Status transaksi berhasil disinkronkan dengan server H2H.',
+                'transaction' => $updatedTransaction,
+            ]);
         }
 
-        return back()->with('error', $errorMessage);
+        return back()->with('success', 'Status transaksi berhasil disinkronkan dengan server H2H.');
     }
 
     /**

@@ -111,6 +111,11 @@ class OrderController extends Controller
             ->where('invoice_code', $invoiceCode)
             ->firstOrFail();
 
+        // Sync real-time with provider if transaction is not yet in final state
+        if (! $transaction->isTopupCompleted() && ! $transaction->isTopupFailed() && ! $transaction->isExpired()) {
+            $transaction = $this->checkoutService->syncTransactionStatus($transaction);
+        }
+
         $settings = SiteSetting::getSettings();
         $adminPhone = $settings['contact_whatsapp'] ?? '628123456789';
 
@@ -156,11 +161,16 @@ class OrderController extends Controller
     }
 
     /**
-     * Check current status of transaction (used by browser auto-polling).
+     * Check current status of transaction (used by browser auto-polling and manual Cek Status).
      */
-    public function status(string $invoiceCode): JsonResponse
+    public function status(Request $request, string $invoiceCode): JsonResponse
     {
         $transaction = Transaction::where('invoice_code', $invoiceCode)->firstOrFail();
+
+        // Sync with provider if not finished yet
+        if (! $transaction->isTopupCompleted() && ! $transaction->isTopupFailed() && ! $transaction->isExpired()) {
+            $transaction = $this->checkoutService->syncTransactionStatus($transaction);
+        }
 
         return response()->json([
             'success' => true,
