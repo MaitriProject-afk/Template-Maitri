@@ -174,4 +174,50 @@ class OrderController extends Controller
             'completed_at' => $transaction->completed_at?->toIso8601String(),
         ]);
     }
+
+    /**
+     * Track transaction status by invoice code.
+     */
+    public function track(Request $request): JsonResponse
+    {
+        $request->validate([
+            'invoice_code' => 'required|string',
+        ]);
+
+        $code = trim($request->invoice_code);
+        $transaction = Transaction::with(['product:id,name,slug,thumbnail', 'productItem:id,name'])
+            ->where('invoice_code', $code)
+            ->orWhere('maitri_invoice', $code)
+            ->first();
+
+        if (! $transaction) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pesanan dengan kode invoice "'.$code.'" tidak ditemukan dalam sistem kami.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'invoice_code' => $transaction->invoice_code,
+                'product_name' => $transaction->product_name,
+                'product_thumbnail' => $transaction->product?->thumbnail,
+                'customer_no' => $transaction->customer_no,
+                'total_payment' => $transaction->total_payment,
+                'formatted_total_payment' => $transaction->formatted_total_payment,
+                'payment_status' => $transaction->payment_status,
+                'topup_status' => $transaction->topup_status,
+                'is_paid' => $transaction->isPaid(),
+                'is_expired' => $transaction->isExpired(),
+                'is_completed' => $transaction->isTopupCompleted(),
+                'is_failed' => $transaction->isTopupFailed(),
+                'sn' => $transaction->sn,
+                'payment_message' => $transaction->payment_message,
+                'topup_message' => $transaction->topup_message,
+                'created_at' => $transaction->created_at?->translatedFormat('d M Y, H:i').' WIB',
+                'invoice_url' => route('invoice.show', ['invoice_code' => $transaction->invoice_code]),
+            ],
+        ]);
+    }
 }

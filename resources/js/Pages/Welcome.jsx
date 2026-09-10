@@ -40,11 +40,6 @@ export default function Welcome({ auth, categories = [], products = [], laravelV
                     {/* 2. Hero Section (Sketchbook style) */}
                     <HeroBanner
                         onOpenTracking={() => setIsTrackingOpen(true)}
-                        onSelectCategory={(cat) => {
-                            setActiveCategory(cat);
-                            const el = document.getElementById('katalog');
-                            if (el) el.scrollIntoView({ behavior: 'smooth' });
-                        }}
                     />
 
                     {/* 3. Stats Bar / Trust Badges */}
@@ -89,12 +84,7 @@ export default function Welcome({ auth, categories = [], products = [], laravelV
 
                     {/* 4. Product Catalog / Game Grid */}
                     <ProductGrid
-                        categories={categories}
                         products={products}
-                        activeCategory={activeCategory}
-                        onSelectCategory={setActiveCategory}
-                        searchQuery={searchQuery}
-                        onSearchChange={setSearchQuery}
                         onSelectProduct={handleSelectProduct}
                     />
 

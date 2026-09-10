@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\SubCategory;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -27,8 +28,8 @@ class PublicCatalogController extends Controller
 
         $products = Product::with(['category:id,name,slug', 'subCategory:id,name,slug', 'activeItems'])
             ->where('is_active', true)
-            ->orderBy('name', 'asc')
-            ->take(20)
+            ->inRandomOrder()
+            ->take(10)
             ->get()
             ->map(function ($prod) {
                 $minPrice = $prod->activeItems->min('price') ?? 0;
@@ -265,6 +266,45 @@ class PublicCatalogController extends Controller
                 'price' => $item->price,
                 'formatted_price' => $item->formatted_price,
             ],
+        ]);
+    }
+
+    /**
+     * Search products for live mobile search modal / quick search.
+     */
+    public function searchApi(Request $request): JsonResponse
+    {
+        $q = trim($request->input('q', ''));
+
+        $query = Product::with(['category:id,name,slug', 'activeItems'])
+            ->where('is_active', true);
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('name', 'like', "%{$q}%")
+                    ->orWhere('brand', 'like', "%{$q}%");
+            });
+        }
+
+        $products = $query->take(20)->get()->map(function ($prod) {
+            $minPrice = $prod->activeItems->min('price') ?? 0;
+
+            return [
+                'id' => $prod->id,
+                'name' => $prod->name,
+                'slug' => $prod->slug,
+                'category' => $prod->category?->name ?? 'Semua',
+                'brand' => $prod->brand ?? $prod->name,
+                'thumbnail' => $prod->thumbnail,
+                'tagline' => $prod->description ? Str::limit(strip_tags($prod->description), 50) : 'Proses 1-3 detik otomatis',
+                'min_price' => $minPrice,
+                'formatted_min_price' => 'Rp '.number_format($minPrice, 0, ',', '.'),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $products,
         ]);
     }
 }

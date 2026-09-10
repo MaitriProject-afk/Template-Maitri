@@ -5,7 +5,6 @@ import Footer from '../Components/Footer';
 import BottomNav from '../Components/BottomNav';
 import TransactionTrackerModal from '../Components/TransactionTrackerModal';
 import SearchModal from '../Components/SearchModal';
-import { CATALOG_PRODUCTS } from '../data/catalogData';
 
 /**
  * MainLayout
@@ -100,17 +99,6 @@ export default function MainLayout({
                 <SearchModal
                     isOpen={isSearchOpen}
                     onClose={() => setIsSearchOpen(false)}
-                    products={CATALOG_PRODUCTS}
-                    onSelectProduct={(product) => {
-                        setIsSearchOpen(false);
-                        if (onSelectProduct) {
-                            onSelectProduct(product);
-                        } else if (product?.slug) {
-                            router.visit(`/product/${product.slug}`);
-                        } else {
-                            router.visit(`/katalog?search=${encodeURIComponent(product.name)}`);
-                        }
-                    }}
                 />
             </div>
         </>

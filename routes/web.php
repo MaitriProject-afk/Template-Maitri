@@ -23,6 +23,8 @@ Route::get('/produk/{slug}', function (string $slug) {
     return redirect()->route('product.detail', ['slug' => $slug]);
 });
 Route::post('/order/validate', [PublicCatalogController::class, 'validateOrder'])->name('order.validate');
+Route::post('/order/track', [OrderController::class, 'track'])->name('order.track');
+Route::get('/api/products/search', [PublicCatalogController::class, 'searchApi'])->name('api.products.search');
 
 // Checkout & Invoice Routes
 Route::post('/checkout', [OrderController::class, 'store'])->name('checkout.store');
@@ -42,8 +44,15 @@ Route::get('/dashboard', function () {
 })->middleware(['auth'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/user/profile', function () {
-        return Inertia::render('User/Profile');
+    Route::get('/user/profile', function (Request $request) {
+        $transactions = $request->user()->transactions()
+            ->with(['product:id,name,slug,thumbnail', 'productItem:id,name'])
+            ->latest()
+            ->paginate(10);
+
+        return Inertia::render('User/Profile', [
+            'transactions' => $transactions,
+        ]);
     })->name('user.profile');
 
     Route::post('/user/profile/update-phone', function (Request $request) {

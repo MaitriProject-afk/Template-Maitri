@@ -29,14 +29,6 @@ export default function Navbar({
     const [showBanner, setShowBanner] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    const handleSearchKeyDown = (e) => {
-        if (e.key === 'Enter' && searchQuery && searchQuery.trim().length > 0) {
-            if (window.location.pathname !== '/katalog') {
-                router.visit(`/katalog?search=${encodeURIComponent(searchQuery.trim())}`);
-            }
-        }
-    };
-
     return (
         <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur-md border-b-2 border-ink">
             {/* Running Text / Announcement Bar */}
@@ -86,28 +78,6 @@ export default function Navbar({
                             </p>
                         </div>
                     </Link>
-
-                    {/* Desktop Live Search Bar */}
-                    <div className="hidden md:flex flex-1 max-w-md mx-4">
-                        <div className="relative w-full">
-                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
-                                <Search className="w-4 h-4" />
-                            </div>
-                            <input
-                                type="text"
-                                value={searchQuery || ''}
-                                onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
-                                onKeyDown={handleSearchKeyDown}
-                                placeholder="Cari game favoritmu (e.g. Mobile Legends, Genshin)..."
-                                className="w-full pl-10 pr-16 py-2 bg-white border-2 border-ink rounded-xl shadow-sketch-xs focus:ring-0 focus:border-ink focus:shadow-sketch transition-all text-sm font-medium placeholder:text-ink-muted/70"
-                            />
-                            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
-                                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-paper-dark border border-ink rounded text-ink-muted">
-                                    ESC
-                                </kbd>
-                            </div>
-                        </div>
-                    </div>
 
                     {/* Desktop Nav Links */}
                     <nav className="hidden lg:flex items-center gap-6">
